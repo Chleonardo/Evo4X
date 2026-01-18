@@ -153,6 +153,24 @@ def render_hud(snapshot: dict):
         f"Fork cost: {fmt(econ.get('fork_cost'), 2)}"
     )
 
+    # --- Active effects (global, always visible) ---
+    st.markdown("**Active effects (global)**")
+    ae = snapshot.get("active_effects") or []
+    if ae:
+        # компактный список
+        for e in ae:
+            try:
+                cell = e.get("cell")
+                res = e.get("res")
+                mult = float(e.get("mult"))
+                ttl = int(e.get("ttl"))
+                st.write(f"- {cell}: {res} ×{mult:.2f} ({ttl}t)")
+            except Exception:
+                st.write(f"- {e}")
+    else:
+        st.caption("— none —")
+
+
 
 def render_map(snapshot: dict):
     m = snapshot.get('map', {}) or {}
@@ -208,8 +226,27 @@ def render_cell(snapshot: dict):
     st.markdown('**Neighbors**')
     st.write(inspector.get('neighbors'))
 
-    st.markdown('**Active effects**')
-    st.write(passport.get('active_effects'))
+    st.markdown('**Active effects (this cell)**')
+
+    detailed = passport.get('active_effects_detailed') or []
+    if detailed:
+        for e in detailed:
+            try:
+                res = e.get("res")
+                mult = float(e.get("mult"))
+                ttl = int(e.get("ttl"))
+                st.write(f"- {res} ×{mult:.2f} ({ttl}t)")
+            except Exception:
+                st.write(f"- {e}")
+    else:
+        st.caption("— none —")
+
+    # оставляем старое агрегированное как fallback/справку (не обязательно, но полезно)
+    agg = passport.get('active_effects')
+    if agg:
+        st.caption("Effective multipliers (aggregated):")
+        st.write(agg)
+
 
     st.markdown('**Populations in cell**')
     st.write(inspector.get('populations'))

@@ -229,12 +229,30 @@ def _make_cell_passport(save_obj: dict, cell_name: str, tick_resolved: int) -> d
 
     breakdown = save_obj["state"].get("last_tick_breakdown", {}).get(cell_name)
 
+        # --- Active effects (detailed, with TTL) ---
+    active_effects_detailed = []
+    for eff in (save_obj.get("state", {}).get("active_effects", []) or []):
+        try:
+            if eff.get("cell") != cell_name:
+                continue
+            active_effects_detailed.append({
+                "type": str(eff.get("type", "fluctuation")),
+                "cell": str(eff.get("cell")),
+                "res": str(eff.get("res")),
+                "mult": float(eff.get("mult")),
+                "ttl": int(eff.get("ttl")),
+            })
+        except Exception:
+            # ignore malformed effect entries
+            continue
+
     return {
         "cell": cell_name,
         "tick": int(tick_resolved),
         "resources": {k: float(v) for k, v in cell["resources"].items()},
         "resources_effective": {k: float(v) for k, v in eff_res.items()},
         "active_effects": [{"res": k, "mult": float(v)} for k, v in effects.items()],
+        "active_effects_detailed": active_effects_detailed,
         "npc_species": npcs,
         "player_species": players,
         "consumption_breakdown": breakdown,
@@ -1029,6 +1047,21 @@ def get_ui_snapshot(save_path: str, selected_cell: str | None = None) -> dict:
         if sid:
             species_cells[sid] = get_species_cells(save_path, sid)
 
+    # --- Active effects (global, always visible) ---
+    s_full = read_save(save_path)
+    active_effects_global = []
+    for eff in (s_full.get("state", {}).get("active_effects", []) or []):
+        try:
+            active_effects_global.append({
+                "type": str(eff.get("type", "fluctuation")),
+                "cell": str(eff.get("cell")),
+                "res": str(eff.get("res")),
+                "mult": float(eff.get("mult")),
+                "ttl": int(eff.get("ttl")),
+            })
+        except Exception:
+            continue
+
     snapshot = {
         "hud": hud,
         "economy": economy,
@@ -1036,6 +1069,7 @@ def get_ui_snapshot(save_path: str, selected_cell: str | None = None) -> dict:
         "species_cells": species_cells,
         "map": get_map_state(save_path, selected_cell=selected_cell),
         "last_events": read_save(save_path).get("state", {}).get("last_events", []),
+        "active_effects": active_effects_global,
         "last_reveals": read_save(save_path).get("state", {}).get("last_reveals", []),
         "selected_cell": None,
     }
