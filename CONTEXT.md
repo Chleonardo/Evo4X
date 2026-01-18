@@ -1,11 +1,29 @@
 # Evo4X — Project Context (v2.6.x)
 
+## CURRENT BASELINE (for new threads)
+
+As of <18.01.2026>:
+
+- Engine: evo4x_engine_v2_6_13_rtsgrid_uiapi.py
+- UI: app.py
+- This version is considered STABLE BASELINE for further work.
+- Any new changes must be local, minimal, and contract-driven.
+
 ## 0. Что это за документ
 Этот файл — единый источник правды для контекста проекта Evo4X.
 Он предназначен для:
 - переноса контекста между чатами / сессиями,
 - быстрого онбординга в проект,
 - фиксации текущих правил, гипотез и известных проблем.
+
+## Change policy
+
+- No refactors without explicit request.
+- No renaming of public fields or functions.
+- All changes must be single-task and contract-based.
+- Prefer patching over rewriting.
+- Engine is the source of truth; UI only reads snapshot.
+
 
 ---
 
@@ -78,3 +96,23 @@ Evo4X — это пошаговая эволюционная 4X-стратеги
 - Python 3.13
 - Streamlit UI
 - File-based saves
+
+## Active Effects visibility
+
+Goal:
+Active effects must be visible in UI for the entire duration (TTL).
+
+Status:
+❌ Not fixed yet (baseline version still has early disappearance issue).
+
+Notes:
+- Effects exist in engine state with TTL.
+- UI sometimes loses them before TTL reaches 0.
+- This will be addressed as a single-task patch.
+
+## External playtesting
+
+- Prototype is shared via Streamlit Cloud.
+- Testers use browser only (no local setup).
+- Onboarding text exists and is sent separately.
+
