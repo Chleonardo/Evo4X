@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+
+# Streamlit
+.streamlit/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+
+# Saves / runtime data
+saves/
+logs/
+*.json
+*.csv
+
+# Temporary
+tmp/
