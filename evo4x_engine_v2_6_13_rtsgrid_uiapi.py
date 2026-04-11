@@ -5,10 +5,17 @@
 # - EVO passive credited at START of tick from stored passive_due
 # - Migrations are species-aware
 
-import os, json, math, time, hashlib
+import os, json, math, time, hashlib, pathlib
+
+_DATA_DIR = pathlib.Path(__file__).parent / "data"
+
+def _load_json(name: str) -> dict:
+    p = _DATA_DIR / name
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
 
 RULES = {
-    'extinction_eps': 0.01,
+    'extinction_eps': 1.0,
     "map_w": 3,
     "map_h": 3,
     "min_expedition": 2.0,
@@ -26,17 +33,87 @@ RULES = {
     "event_fluct_ttl_min": 3,
     "event_fluct_ttl_max": 6,
 
-    "event_invasive_pop_min": 10.0,
-    "event_invasive_pop_max": 25.0,
-
     "npc_b3_cap": 0.30,
     "npc_r_min": 0.10,
     "npc_r_max": 0.60,
+}
 
-    "npc_b_focus_min": 1.20,
-    "npc_b_focus_max": 2.00,
-    "npc_b_other_min": 0.00,
-    "npc_b_other_max": 0.60,
+# ---------- Savanna world data ----------
+# Loaded from data/species.json and data/archetypes.json — edit those files to tune balance.
+
+SAVANNA_SPECIES: dict = _load_json("species.json")
+
+SAVANNA_RESOURCE_UI = {
+    "R1": {"ui_name": "Grass",  "emoji": "🌱"},
+    "R2": {"ui_name": "Leaves", "emoji": "🌿"},
+    "R3": {"ui_name": "Roots",  "emoji": "🥔"},
+}
+
+SAVANNA_PLAYER_ICONS = {"sp0": "🧬", "sp1": "🐾", "sp2": "🦴", "sp3": "🦠"}
+
+SAVANNA_RICHNESS = {"poor": 30, "normal": 60, "rich": 90}
+
+SAVANNA_ARCHETYPES: dict = _load_json("archetypes.json")
+
+# NPC initial pop by pack size (1/2/3) and richness tier
+SAVANNA_NPC_POP = {
+    1: {"poor":  8, "normal": 14, "rich": 22},
+    2: {"poor":  6, "normal": 10, "rich": 16},
+    3: {"poor":  5, "normal":  8, "rich": 12},
+}
+
+# 12 layout templates (archetype per non-start cell)
+SAVANNA_TEMPLATES = [
+    {"c00":"dense_grove",  "c01":"woodland",        "c02":"rootland",
+     "c10":"open_savanna", "c12":"root_patch",       "c20":"grassland",    "c21":"diverse_savanna","c22":"grassland"},
+    {"c00":"rootland",     "c01":"open_savanna",     "c02":"dense_grove",
+     "c10":"root_patch",   "c12":"woodland",          "c20":"grassland",    "c21":"root_mosaic",    "c22":"grassland"},
+    {"c00":"grassland",    "c01":"woodland",          "c02":"grassland",
+     "c10":"open_savanna", "c12":"root_patch",        "c20":"rootland",     "c21":"leaf_mosaic",    "c22":"dense_grove"},
+    {"c00":"dense_grove",  "c01":"root_patch",        "c02":"grassland",
+     "c10":"woodland",     "c12":"open_savanna",      "c20":"rootland",     "c21":"grassland",      "c22":"diverse_savanna"},
+    {"c00":"grassland",    "c01":"rootland",          "c02":"dense_grove",
+     "c10":"open_savanna", "c12":"woodland",          "c20":"diverse_savanna","c21":"grassland",    "c22":"root_patch"},
+    {"c00":"root_patch",   "c01":"woodland",          "c02":"grassland",
+     "c10":"rootland",     "c12":"dense_grove",       "c20":"grassland",    "c21":"open_savanna",   "c22":"leaf_mosaic"},
+    {"c00":"dense_grove",  "c01":"grassland",         "c02":"root_patch",
+     "c10":"woodland",     "c12":"rootland",          "c20":"diverse_savanna","c21":"open_savanna", "c22":"grassland"},
+    {"c00":"grassland",    "c01":"dense_grove",       "c02":"grassland",
+     "c10":"root_patch",   "c12":"woodland",          "c20":"rootland",     "c21":"diverse_savanna","c22":"open_savanna"},
+    {"c00":"rootland",     "c01":"grassland",         "c02":"dense_grove",
+     "c10":"woodland",     "c12":"root_patch",        "c20":"open_savanna", "c21":"leaf_mosaic",    "c22":"grassland"},
+    {"c00":"grassland",    "c01":"root_patch",        "c02":"rootland",
+     "c10":"dense_grove",  "c12":"woodland",          "c20":"open_savanna", "c21":"diverse_savanna","c22":"grassland"},
+    {"c00":"dense_grove",  "c01":"leaf_mosaic",       "c02":"grassland",
+     "c10":"open_savanna", "c12":"root_patch",        "c20":"grassland",    "c21":"woodland",       "c22":"rootland"},
+    {"c00":"grassland",    "c01":"diverse_savanna",   "c02":"grassland",
+     "c10":"rootland",     "c12":"open_savanna",      "c20":"dense_grove",  "c21":"root_patch",     "c22":"woodland"},
+]
+
+# Slot options for the 4 neighbors of c11 (spec: N=c01, W=c10, E=c12, S=c21)
+SAVANNA_SLOT_OPTIONS = {
+    "safe_training": [
+        {"archetype": "grassland",        "richness": "normal", "pack": []},
+        {"archetype": "grassland",        "richness": "normal", "pack": ["gazelle"]},
+    ],
+    "leaf_offspec": [
+        {"archetype": "open_savanna",     "richness": "normal", "pack": ["giraffe"]},
+        {"archetype": "open_savanna",     "richness": "normal", "pack": ["giraffe", "impala"]},
+        {"archetype": "woodland",         "richness": "normal", "pack": ["giraffe"]},
+        {"archetype": "woodland",         "richness": "normal", "pack": ["giraffe", "impala"]},
+    ],
+    "root_offspec": [
+        {"archetype": "root_patch",       "richness": "normal", "pack": ["mole_rat"]},
+        {"archetype": "rootland",         "richness": "normal", "pack": ["mole_rat"]},
+    ],
+    "wildcard": [
+        {"archetype": "open_savanna",     "richness": "normal", "pack": ["giraffe"]},
+        {"archetype": "open_savanna",     "richness": "normal", "pack": ["giraffe", "gazelle"]},
+        {"archetype": "root_patch",       "richness": "normal", "pack": ["mole_rat"]},
+        {"archetype": "root_patch",       "richness": "normal", "pack": ["warthog"]},
+        {"archetype": "woodland",         "richness": "normal", "pack": ["giraffe"]},
+        {"archetype": "diverse_savanna",  "richness": "poor",   "pack": ["giraffe", "mole_rat", "gazelle"]},
+    ],
 }
 
 # ---------- RNG (sha256_stateless) ----------
@@ -55,7 +132,8 @@ def lerp(a, b, t):
 def choose_index(seed_int: int, key: str, n: int) -> int:
     if n <= 0:
         return 0
-    return int(lerp(0, n - 1 + 1e-9, rand01(seed_int, key)))
+    # Uniform pick in [0, n): rand01 ∈ [0,1) → int(rand01*n) ∈ {0,..,n-1}.
+    return min(n - 1, int(rand01(seed_int, key) * n))
 
 # ---------- Save IO ----------
 
@@ -215,6 +293,7 @@ def _make_cell_passport(save_obj: dict, cell_name: str, tick_resolved: int) -> d
             "b": {k: float(v) for k, v in npc["b"].items()},
             "focus": _npc_focus(npc["b"]),
             "origin": npc.get("origin", "seed"),
+            "species_type": npc.get("species_type"),
         })
 
     players = []
@@ -249,6 +328,8 @@ def _make_cell_passport(save_obj: dict, cell_name: str, tick_resolved: int) -> d
     return {
         "cell": cell_name,
         "tick": int(tick_resolved),
+        "archetype": cell.get("archetype"),
+        "richness":  cell.get("richness"),
         "resources": {k: float(v) for k, v in cell["resources"].items()},
         "resources_effective": {k: float(v) for k, v in eff_res.items()},
         "active_effects": [{"res": k, "mult": float(v)} for k, v in effects.items()],
@@ -273,8 +354,6 @@ def event_roll(save_obj):
 
     save_obj["state"]["ticks_since_event"] = 0
     save_obj["state"]["last_event_tick"] = t
-    # 0 = fluctuation, 1 = invasive
-    et = choose_index(save_obj["rng"]["event_seed"], f"tick:{t}:etype", 2)
 
     # choose occupied cell (any player presence)
     occ = set()
@@ -286,40 +365,204 @@ def event_roll(save_obj):
         return True, {"type": "noop"}
 
     cell = occ[choose_index(save_obj["rng"]["event_seed"], f"tick:{t}:cell", len(occ))]
-    res_list = ["R1", "R2", "R3"]
-    res = res_list[choose_index(save_obj["rng"]["event_seed"], f"tick:{t}:res:{cell}", 3)]
+    cell_res = save_obj["world"]["cells"].get(cell, {}).get("resources", {})
+    res_list = [r for r in ("R1", "R2", "R3") if float(cell_res.get(r, 0.0)) > 0]
+    if not res_list:
+        return True, {"type": "noop"}
+    res = res_list[choose_index(save_obj["rng"]["event_seed"], f"tick:{t}:res:{cell}", len(res_list))]
 
-    if et == 0:
-        mult = lerp(RULES["event_fluct_mult_min"], RULES["event_fluct_mult_max"],
-                    rand01(save_obj["rng"]["event_seed"], f"tick:{t}:mult:{cell}:{res}"))
-        ttl = int(lerp(RULES["event_fluct_ttl_min"], RULES["event_fluct_ttl_max"] + 0.9999,
-                       rand01(save_obj["rng"]["event_seed"], f"tick:{t}:ttl:{cell}:{res}")))
-        eff = {"type": "fluctuation", "cell": cell, "res": res, "mult": float(mult), "ttl": ttl}
-        return True, {"type": "fluctuation", "eff": eff, "cell": cell, "res": res, "mult": float(mult), "ttl": ttl}
-
-    # invasive
-    pop = lerp(RULES["event_invasive_pop_min"], RULES["event_invasive_pop_max"],
-               rand01(save_obj["rng"]["event_seed"], f"tick:{t}:invpop:{cell}:{res}"))
-
-    b = {"R1": 0.0, "R2": 0.0, "R3": 0.0}
-    for r in ("R1", "R2", "R3"):
-        if r == res:
-            if r == "R3":
-                b[r] = float(RULES["npc_b3_cap"])
-            else:
-                b[r] = float(lerp(RULES["npc_b_focus_min"], RULES["npc_b_focus_max"],
-                                  rand01(save_obj["rng"]["event_seed"], f"tick:{t}:bf:{cell}:{res}")))
-        else:
-            b[r] = float(lerp(RULES["npc_b_other_min"], RULES["npc_b_other_max"],
-                              rand01(save_obj["rng"]["event_seed"], f"tick:{t}:bo:{cell}:{r}")))
-
-    b["R3"] = min(float(b["R3"]), float(RULES["npc_b3_cap"]))
-    rr = float(lerp(RULES["npc_r_min"], RULES["npc_r_max"],
-                    rand01(save_obj["rng"]["event_seed"], f"tick:{t}:invr:{cell}")))
-    npc = {"pop": float(pop), "r": float(rr), "b": b, "origin": "invasive"}
-    return True, {"type": "invasive", "cell": cell, "res": res, "npc": npc}
+    # Only event type: fluctuation (invasive removed)
+    mult = lerp(RULES["event_fluct_mult_min"], RULES["event_fluct_mult_max"],
+                rand01(save_obj["rng"]["event_seed"], f"tick:{t}:mult:{cell}:{res}"))
+    ttl = int(lerp(RULES["event_fluct_ttl_min"], RULES["event_fluct_ttl_max"] + 0.9999,
+                   rand01(save_obj["rng"]["event_seed"], f"tick:{t}:ttl:{cell}:{res}")))
+    eff = {"type": "fluctuation", "cell": cell, "res": res, "mult": float(mult), "ttl": ttl}
+    return True, {"type": "fluctuation", "eff": eff, "cell": cell, "res": res, "mult": float(mult), "ttl": ttl}
 
 # ---------- World generation ----------
+
+# --- Savanna worldgen helpers ---
+
+def _savanna_resources(archetype: str, richness: str) -> dict:
+    """Integer R1/R2/R3 from archetype ratio and richness total. Sum always equals tier total."""
+    ratio = SAVANNA_ARCHETYPES[archetype]["ratio"]
+    total = SAVANNA_RICHNESS[richness]
+    r1 = round(total * ratio["R1"] / 100)
+    r2 = round(total * ratio["R2"] / 100)
+    r3 = round(total * ratio["R3"] / 100)
+    diff = total - (r1 + r2 + r3)
+    if diff != 0:
+        dom = max(ratio, key=lambda k: ratio[k])
+        if dom == "R1":   r1 += diff
+        elif dom == "R2": r2 += diff
+        else:             r3 += diff
+    return {"R1": float(r1), "R2": float(r2), "R3": float(r3)}
+
+
+def _savanna_permute(seed_int: int, key: str, lst: list) -> list:
+    """Fisher-Yates shuffle with stateless RNG."""
+    lst = list(lst)
+    for i in range(len(lst) - 1, 0, -1):
+        j = choose_index(seed_int, f"{key}:{i}", i + 1)
+        lst[i], lst[j] = lst[j], lst[i]
+    return lst
+
+
+def _rotate_cid(cid: str, n90: int) -> str:
+    """Rotate cell id n90×90° CW around center of 3×3 grid. Formula: (x,y)->(2-y,x)."""
+    x, y = int(cid[1]), int(cid[2])
+    for _ in range(n90 % 4):
+        x, y = 2 - y, x
+    return f"c{x}{y}"
+
+
+def _reflect_cid(cid: str) -> str:
+    """Horizontal reflection: (x,y)->(2-x,y)."""
+    return f"c{2 - int(cid[1])}{cid[2]}"
+
+
+def _is_contested(pack: list) -> bool:
+    return "buffalo" in pack or "elephant" in pack or len(pack) >= 3
+
+
+def _savanna_npc_entry(species_type: str, pop: float) -> dict:
+    sp = SAVANNA_SPECIES[species_type]
+    return {
+        "pop": float(pop),
+        "r": float(sp["stats"]["r"]),
+        "b": dict(sp["stats"]["b"]),
+        "origin": "seeded",
+        "species_type": species_type,
+    }
+
+
+def _build_npc_pack(pack: list, richness: str) -> list:
+    if not pack:
+        return []
+    n = min(len(pack), 3)
+    pop_val = float(SAVANNA_NPC_POP[n][richness])
+    return [_savanna_npc_entry(stype, pop_val) for stype in pack]
+
+
+def _pick_corner_richness(world_seed: int, cid: str, archetype: str,
+                          rich_count: int, poor_count: int,
+                          extra_poor: int = 0) -> str:
+    # Global budget: max 3 poor cells, max 2 rich cells.
+    # extra_poor = start cell (always poor, =1) + any neighbor poors already assigned.
+    candidates = ["poor", "normal", "rich"]
+    if rich_count >= 2:
+        candidates = [c for c in candidates if c != "rich"]
+    if poor_count + extra_poor >= 3:
+        candidates = [c for c in candidates if c != "poor"]
+    if not candidates:
+        candidates = ["normal"]
+    idx = choose_index(world_seed, f"rich:{cid}", len(candidates))
+    richness = candidates[idx % len(candidates)]
+    if richness == "rich":
+        packs = SAVANNA_ARCHETYPES[archetype]["packs"]
+        if not any(_is_contested(p) for p in packs):
+            richness = "normal"
+    return richness
+
+
+def _pick_corner_pack(world_seed: int, cid: str, archetype: str, richness: str) -> list:
+    packs = list(SAVANNA_ARCHETYPES[archetype]["packs"])
+    if richness != "poor":
+        filtered = [p for p in packs if len(p) > 0]
+        if filtered:
+            packs = filtered
+    if richness == "rich":
+        contested = [p for p in packs if _is_contested(p)]
+        if contested:
+            packs = contested
+    idx = choose_index(world_seed, f"pack:{cid}", len(packs))
+    return packs[idx % max(len(packs), 1)]
+
+
+def _savanna_worldgen(world_seed: int) -> dict:
+    """Return {cid: {archetype, richness, pack, resources, npc_species}} for all 9 cells."""
+    START     = "c11"
+    CORNERS   = ["c00", "c02", "c20", "c22"]
+    NEIGHBORS = ["c01", "c10", "c12", "c21"]
+    SLOTS     = ["safe_training", "leaf_offspec", "root_offspec", "wildcard"]
+
+    result = {}
+
+    # Start cell: fixed spec
+    result[START] = {
+        "archetype": "grassland",
+        "richness":  "poor",
+        "pack":      [],
+        "resources": _savanna_resources("grassland", "poor"),
+        "npc_species": [],
+    }
+
+    # Neighbors: slot permutation driven by seed
+    slot_perm = _savanna_permute(world_seed, "slots", list(range(4)))
+    for i, cid in enumerate(NEIGHBORS):
+        slot_name = SLOTS[slot_perm[i]]
+        opts = SAVANNA_SLOT_OPTIONS[slot_name]
+        opt  = opts[choose_index(world_seed, f"slot_opt:{cid}", len(opts))]
+        result[cid] = {
+            "archetype":   opt["archetype"],
+            "richness":    opt["richness"],
+            "pack":        opt["pack"],
+            "resources":   _savanna_resources(opt["archetype"], opt["richness"]),
+            "npc_species": _build_npc_pack(opt["pack"], opt["richness"]),
+        }
+
+    # Corners: pick template, rotate, reflect; then assign richness+pack
+    t_idx = choose_index(world_seed, "template", len(SAVANNA_TEMPLATES))
+    rot   = choose_index(world_seed, "rot", 4)
+    ref   = choose_index(world_seed, "ref", 2)
+
+    raw_tmpl = SAVANNA_TEMPLATES[t_idx]
+    transformed = {}
+    for src, archetype in raw_tmpl.items():
+        dst = _reflect_cid(src) if ref else src
+        dst = _rotate_cid(dst, rot)
+        if dst in CORNERS:
+            transformed[dst] = archetype
+
+    # count non-corner poors already assigned: start (c11, always poor) + any neighbor with richness=="poor"
+    extra_poor = 1  # start cell
+    for cid in NEIGHBORS:
+        if result[cid]["richness"] == "poor":
+            extra_poor += 1
+
+    rich_count = 0
+    poor_count = 0
+    corner_data = {}
+    for cid in CORNERS:
+        archetype = transformed.get(cid, "grassland")
+        richness  = _pick_corner_richness(world_seed, cid, archetype, rich_count, poor_count, extra_poor=extra_poor)
+        if richness == "rich":  rich_count += 1
+        elif richness == "poor": poor_count += 1
+        pack = _pick_corner_pack(world_seed, cid, archetype, richness)
+        corner_data[cid] = (archetype, richness, pack)
+
+    # Enforce min_poor_cells=2 globally (start=poor counts as 1, so need 1+ poor corner)
+    if poor_count == 0:
+        for cid in CORNERS:
+            archetype, richness, pack = corner_data[cid]
+            if richness != "poor":
+                richness = "poor"
+                pack = _pick_corner_pack(world_seed, cid, archetype, "poor")
+                corner_data[cid] = (archetype, richness, pack)
+                break
+
+    for cid, (archetype, richness, pack) in corner_data.items():
+        result[cid] = {
+            "archetype":   archetype,
+            "richness":    richness,
+            "pack":        pack,
+            "resources":   _savanna_resources(archetype, richness),
+            "npc_species": _build_npc_pack(pack, richness),
+        }
+
+    return result
+
+# --- Legacy random worldgen (kept for reference, no longer called by init_new_run) ---
 
 def _gen_resources(world_seed: int, cell_name: str, total_min: float, total_max: float, r3_weight: float = 1/3):
     total = lerp(total_min, total_max, rand01(world_seed, f"total:{cell_name}"))
@@ -362,28 +605,24 @@ def init_new_run(world_seed=0, npc_seed=1, event_seed=2, card_seed=3, out_dir="/
 
     all_cells = [f"c{x}{y}" for y in range(h) for x in range(w)]
 
-    # Random start position
-    start_idx = choose_index(world_seed, "startpos", len(all_cells))
-    start_cell = all_cells[int(start_idx)]
+    start_cell = "c11"  # fixed start (savanna spec)
+
+    # Savanna deterministic worldgen
+    worldgen = _savanna_worldgen(world_seed)
 
     cells = {}
-    # Create cells with resources + difficulty
     for cid in all_cells:
-        if cid == start_cell:
-            resources = {"R1": 10.0, "R2": 0.0, "R3": 0.0}
-        else:
-            resources = _gen_resources(world_seed, cid, 0, 100, r3_weight=1/3)
-
-        diff = _cell_difficulty(world_seed, cid)
+        wg = worldgen[cid]
         cells[cid] = {
             "pos": {"x": int(cid[1]), "y": int(cid[2])},
-            "difficulty": float(diff),
-            "resources": resources,
-            "npc_species": [],
+            "archetype": wg["archetype"],
+            "richness":  wg["richness"],
+            "resources": wg["resources"],
+            "npc_species": wg["npc_species"],
             "neighbors": [],
         }
 
-    # Neighbors (4-neighborhood) for later RTS rules/UI
+    # 4-neighborhood links
     for cid in all_cells:
         x = int(cid[1]); y = int(cid[2])
         nbrs = []
@@ -392,15 +631,6 @@ def init_new_run(world_seed=0, npc_seed=1, event_seed=2, card_seed=3, out_dir="/
             if 0 <= nx < w and 0 <= ny < h:
                 nbrs.append(f"c{nx}{ny}")
         cells[cid]["neighbors"] = nbrs
-
-    # Spawn NPCs (skip start cell)
-    for cid in all_cells:
-        if cid == start_cell:
-            continue
-        diff = float(cells[cid]["difficulty"])
-        n = _npc_count(npc_seed, cid, diff)
-        for i in range(n):
-            cells[cid]["npc_species"].append(_gen_npc_species(npc_seed, cid, i, diff))
 
     save_id = f"seed_{int(time.time())}"
     save_obj = {
@@ -484,7 +714,7 @@ def apply_migrations(save_obj, migrations):
 
         available = float(sp["population"][src])
         cap = available * float(RULES["migration_cap_frac"])
-        if amt > cap + 1e-9:
+        if amt > cap + 0.005:
             raise ValueError(f"Migration exceeds 50% cap for {sid} in {src}")
         if available + 1e-9 < amt:
             raise ValueError("Not enough individuals to migrate")
@@ -663,18 +893,11 @@ def simulate_tick(save_path: str, action: dict=None, out_dir="/content"):
     # ---- 3) Events ----
     happened, event_info = event_roll(save_obj)
     events_out = []
-    if happened and event_info and event_info.get("type") != "noop":
-        if event_info["type"] == "fluctuation":
-            save_obj["state"].setdefault("active_effects", [])
-            save_obj["state"]["active_effects"].append(event_info["eff"])
-            events_out.append({"type": "fluctuation", "cell": event_info["cell"], "res": event_info["res"],
-                               "mult": event_info["mult"], "ttl": event_info["ttl"]})
-        elif event_info["type"] == "invasive":
-            cell = event_info["cell"]
-            save_obj["world"]["cells"][cell].setdefault("npc_species", [])
-            save_obj["world"]["cells"][cell]["npc_species"].append(event_info["npc"])
-            events_out.append({"type": "invasive", "cell": event_info["cell"], "res": event_info["res"],
-                               "pop": event_info["npc"]["pop"]})
+    if happened and event_info and event_info.get("type") == "fluctuation":
+        save_obj["state"].setdefault("active_effects", [])
+        save_obj["state"]["active_effects"].append(event_info["eff"])
+        events_out.append({"type": "fluctuation", "cell": event_info["cell"], "res": event_info["res"],
+                           "mult": event_info["mult"], "ttl": event_info["ttl"]})
 
     active_effects = _apply_active_effects(save_obj)
 
@@ -712,7 +935,7 @@ def simulate_tick(save_path: str, action: dict=None, out_dir="/content"):
             surv = min(npre, got)
 
             if c["kind"] == "player":
-                if surv > 1e-9:
+                if surv > float(RULES["extinction_eps"]):
                     new_pops[cid][cell_name] = float(surv)
             else:
                 idx = int(cid.replace("npc", ""))
@@ -739,6 +962,11 @@ def simulate_tick(save_path: str, action: dict=None, out_dir="/content"):
     # commit player populations
     for sid in species.keys():
         species[sid]["population"] = new_pops[sid]
+
+    # remove extinct NPC entries from cells
+    eps = float(RULES["extinction_eps"])
+    for cell in save_obj["world"]["cells"].values():
+        cell["npc_species"] = [n for n in cell.get("npc_species", []) if float(n.get("pop", 0.0)) > eps]
 
     save_obj["state"]["last_tick_breakdown"] = last_breakdown
 
@@ -892,10 +1120,9 @@ def get_species_cells(save_path: str, species_id: str) -> dict:
         trend = "flat"
         if len(h) >= 2:
             d = float(h[-1]) - float(h[-2])
-            if d > 1e-9:
-                trend = "up"
-            elif d < -1e-9:
-                trend = "down"
+            rel = abs(d) / max(1.0, abs(float(h[-2])))
+            if rel > 0.005:   # > 0.5% change → show arrow
+                trend = "up" if d > 0 else "down"
         out[cell] = {
             "population": float(pop),
             "consumption_share": share,
@@ -961,6 +1188,15 @@ def get_map_state(save_path: str, selected_cell: str | None = None) -> dict:
                 return "down"
         return "flat"
 
+    # active effects by cell for map overlay
+    active_effect_cells = set()
+    for eff in (s.get("state", {}).get("active_effects", []) or []):
+        try:
+            active_effect_cells.add(str(eff["cell"]))
+        except Exception:
+            pass
+    active_effects_map = _apply_active_effects(s)  # {cid: {res: mult}}
+
     cells = {}
     for cid, cell in world_cells.items():
         is_scouted = cid in scouted
@@ -973,6 +1209,24 @@ def get_map_state(save_path: str, selected_cell: str | None = None) -> dict:
         if is_scouted:
             cells[cid]["fill"] = _fill_for_cell(cid)
             cells[cid]["trend_total"] = _trend_total(cid)
+            cells[cid]["archetype"] = cell.get("archetype")
+            cells[cid]["richness"]  = cell.get("richness")
+            cells[cid]["resources"] = {k: float(v) for k, v in cell.get("resources", {}).items()}
+            cells[cid]["has_event"] = cid in active_effect_cells
+            if cid in active_effect_cells:
+                eff_res = _effective_resources(cell, active_effects_map.get(cid, {}))
+                cells[cid]["resources_effective"] = {k: float(v) for k, v in eff_res.items()}
+            npc_sum = []
+            for npc in cell.get("npc_species", []):
+                stype = npc.get("species_type")
+                sp_data = SAVANNA_SPECIES.get(stype) if stype else None
+                if sp_data and float(npc.get("pop", 0.0)) >= 0.5:
+                    npc_sum.append({
+                        "emoji":   sp_data["emoji"],
+                        "ui_name": sp_data["ui_name"],
+                        "pop":     float(npc["pop"]),
+                    })
+            cells[cid]["npc_summary"] = npc_sum
 
     return {"selected_cell": selected_cell, "cells": cells}
 
