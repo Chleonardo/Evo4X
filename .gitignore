@@ -21,8 +21,10 @@ Thumbs.db
 # Saves / runtime data
 saves/
 logs/
+runs/
 *.json
 *.csv
+!data/*.json
 
 # Temporary
 tmp/

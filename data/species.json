@@ -1,0 +1,10 @@
+{
+  "gazelle":  { "ui_name": "Gazelle",  "emoji": "🦌", "stats": { "r": 1.00, "b": { "R1": 1.0, "R2": 0.0, "R3": 0.0 } } },
+  "impala":   { "ui_name": "Impala",   "emoji": "🦌", "stats": { "r": 0.95, "b": { "R1": 1.2, "R2": 0.6, "R3": 0.0 } } },
+  "zebra":    { "ui_name": "Zebra",    "emoji": "🦓", "stats": { "r": 0.75, "b": { "R1": 1.0, "R2": 0.0, "R3": 0.0 } } },
+  "buffalo":  { "ui_name": "Buffalo",  "emoji": "🐃", "stats": { "r": 0.65, "b": { "R1": 2.0, "R2": 0.0, "R3": 0.0 } } },
+  "giraffe":  { "ui_name": "Giraffe",  "emoji": "🦒", "stats": { "r": 0.40, "b": { "R1": 0.5, "R2": 3.0, "R3": 0.0 } } },
+  "elephant": { "ui_name": "Elephant", "emoji": "🐘", "stats": { "r": 0.12, "b": { "R1": 2.0, "R2": 3.0, "R3": 0.0 } } },
+  "warthog":  { "ui_name": "Warthog",  "emoji": "🐗", "stats": { "r": 1.40, "b": { "R1": 0.5, "R2": 0.0, "R3": 2.0 } } },
+  "mole_rat": { "ui_name": "Mole Rat", "emoji": "🐀", "stats": { "r": 1.80, "b": { "R1": 0.0, "R2": 0.0, "R3": 1.0 } } }
+}

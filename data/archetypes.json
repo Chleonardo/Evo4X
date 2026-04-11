@@ -1,0 +1,71 @@
+{
+  "grassland": {
+    "ui_name": "Grassland",
+    "ratio": { "R1": 100, "R2": 0, "R3": 0 },
+    "packs": [ [], ["gazelle"], ["zebra"], ["buffalo"] ]
+  },
+  "open_savanna": {
+    "ui_name": "Open Savanna",
+    "ratio": { "R1": 67, "R2": 33, "R3": 0 },
+    "packs": [
+      ["giraffe"], ["giraffe","gazelle"], ["giraffe","zebra"],
+      ["giraffe","buffalo"], ["giraffe","warthog"], ["giraffe","impala"], ["impala"]
+    ]
+  },
+  "woodland": {
+    "ui_name": "Woodland",
+    "ratio": { "R1": 33, "R2": 67, "R3": 0 },
+    "packs": [ ["giraffe"], ["giraffe","buffalo"], ["giraffe","impala"] ]
+  },
+  "dense_grove": {
+    "ui_name": "Dense Grove",
+    "ratio": { "R1": 20, "R2": 80, "R3": 0 },
+    "packs": [ ["giraffe"], ["elephant"] ]
+  },
+  "root_patch": {
+    "ui_name": "Root Patch",
+    "ratio": { "R1": 67, "R2": 0, "R3": 33 },
+    "packs": [
+      ["mole_rat"], ["mole_rat","gazelle"], ["mole_rat","zebra"],
+      ["mole_rat","buffalo"], ["mole_rat","giraffe"],
+      ["warthog"], ["warthog","gazelle"], ["warthog","impala"],
+      ["warthog","buffalo"], ["warthog","elephant"]
+    ]
+  },
+  "rootland": {
+    "ui_name": "Rootland",
+    "ratio": { "R1": 33, "R2": 0, "R3": 67 },
+    "packs": [
+      ["mole_rat"], ["mole_rat","gazelle"], ["mole_rat","zebra"],
+      ["mole_rat","buffalo"], ["mole_rat","giraffe"],
+      ["mole_rat","elephant"], ["warthog"]
+    ]
+  },
+  "diverse_savanna": {
+    "ui_name": "Diverse Savanna",
+    "ratio": { "R1": 50, "R2": 30, "R3": 20 },
+    "packs": [
+      ["giraffe","mole_rat","gazelle"], ["giraffe","mole_rat","impala"],
+      ["giraffe","mole_rat","buffalo"], ["giraffe","warthog","impala"],
+      ["giraffe","warthog","buffalo"], ["giraffe","mole_rat","zebra"]
+    ]
+  },
+  "root_mosaic": {
+    "ui_name": "Root Mosaic",
+    "ratio": { "R1": 40, "R2": 20, "R3": 40 },
+    "packs": [
+      ["giraffe","mole_rat","gazelle"], ["giraffe","mole_rat","impala"],
+      ["giraffe","mole_rat","buffalo"], ["giraffe","warthog","impala"],
+      ["giraffe","warthog","buffalo"], ["giraffe","mole_rat","zebra"]
+    ]
+  },
+  "leaf_mosaic": {
+    "ui_name": "Leaf Mosaic",
+    "ratio": { "R1": 30, "R2": 50, "R3": 20 },
+    "packs": [
+      ["giraffe","mole_rat","gazelle"], ["giraffe","mole_rat","impala"],
+      ["giraffe","mole_rat","buffalo"],
+      ["giraffe","warthog","buffalo"]
+    ]
+  }
+}
