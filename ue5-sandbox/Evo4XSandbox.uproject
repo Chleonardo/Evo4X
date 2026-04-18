@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.4",
+	"Category": "",
+	"Description": "Evo4X Spatial Sandbox — observation-only ecosystem simulation",
+	"Modules": [
+		{
+			"Name": "Evo4XSandbox",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
