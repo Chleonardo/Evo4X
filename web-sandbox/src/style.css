@@ -150,10 +150,10 @@ body {
   padding: 3px 0;
 }
 
-.insp-species-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
+.insp-species-emoji {
+  font-size: 14px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .insp-species-name { flex: 1; color: #d1d5db; }

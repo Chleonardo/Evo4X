@@ -166,14 +166,14 @@ function renderLabels(state: HexMapState, world: WorldState, ox: number, oy: num
     const spec = dominant ? getSpecies(dominant) : null;
     const trendChar = region.biomassTrend === 'up' ? '▲' : region.biomassTrend === 'down' ? '▼' : '';
     const trendColor = region.biomassTrend === 'up' ? '#34d399' : region.biomassTrend === 'down' ? '#f87171' : '#9ca3af';
-    const label = spec ? spec.char : '—';
+    const label = spec ? spec.emoji : '—';
 
-    // Dominant species abbreviation
+    // Dominant species emoji
     const txt = el<SVGTextElement>('text', {
       x: cx.toFixed(2), y: (cy + 1).toFixed(2),
       'text-anchor': 'middle', 'dominant-baseline': 'middle',
       fill: spec ? spec.color : '#666',
-      'font-size': '7', 'font-weight': '700',
+      'font-size': '10',
       'pointer-events': 'none',
     });
     txt.textContent = label;

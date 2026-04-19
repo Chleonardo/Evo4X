@@ -29,7 +29,7 @@ export function renderInspector(container: HTMLElement, world: WorldState, regio
     const migOut = bd ? fmt(bd.outgoingMigrants) : '0';
     return `
       <div class="insp-species-row">
-        <div class="insp-species-dot" style="background:${spec.color}"></div>
+        <span class="insp-species-emoji">${spec.emoji}</span>
         <span class="insp-species-name">${spec.name}</span>
         <span class="insp-species-pop">${fmt(pop)}</span>
         ${trendHTML(sp)}
