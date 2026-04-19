@@ -172,33 +172,28 @@ function renderLabels(state: HexMapState, world: WorldState, ox: number, oy: num
   for (const region of world.regions) {
     const cx = region.centroidX + ox;
     const cy = region.centroidY + oy;
-    const dominant = region.dominantSpecies;
-    const spec = dominant ? getSpecies(dominant) : null;
-    const trendChar = region.biomassTrend === 'up' ? '▲' : region.biomassTrend === 'down' ? '▼' : '';
-    const trendColor = region.biomassTrend === 'up' ? '#34d399' : region.biomassTrend === 'down' ? '#f87171' : '#9ca3af';
-    const label = spec ? spec.emoji : '—';
 
-    // Dominant species emoji
-    const txt = el<SVGTextElement>('text', {
-      x: cx.toFixed(2), y: (cy + 1).toFixed(2),
-      'text-anchor': 'middle', 'dominant-baseline': 'middle',
-      fill: spec ? spec.color : '#666',
-      'font-size': '10',
-      'pointer-events': 'none',
-    });
-    txt.textContent = label;
-    state.labelLayer.appendChild(txt);
+    // All species with >5% of total regional biomass
+    const totalBiomass = [...region.populations.values()].reduce((a, b) => a + b, 0);
+    if (totalBiomass <= 0) continue;
+    const significant = [...region.populations.entries()]
+      .filter(([, pop]) => pop / totalBiomass >= 0.05)
+      .sort((a, b) => b[1] - a[1]);
 
-    if (trendChar) {
-      const trendTxt = el<SVGTextElement>('text', {
-        x: (cx + 6).toFixed(2), y: (cy - 3).toFixed(2),
+    const n = significant.length;
+    const spacing = 10;
+    const startX = cx - ((n - 1) * spacing) / 2;
+
+    significant.forEach(([sp], i) => {
+      const spec = getSpecies(sp);
+      const txt = el<SVGTextElement>('text', {
+        x: (startX + i * spacing).toFixed(2), y: cy.toFixed(2),
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: trendColor, 'font-size': '5.5',
-        'pointer-events': 'none',
+        'font-size': '11', 'pointer-events': 'none',
       });
-      trendTxt.textContent = trendChar;
-      state.labelLayer.appendChild(trendTxt);
-    }
+      txt.textContent = spec.emoji;
+      state.labelLayer.appendChild(txt);
+    });
   }
 }
 
@@ -230,7 +225,9 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
   }
 
   const tiles = world.grid.tiles;
+  const minArrowCount = 4; // hide trivial 1-2 migrant flows
   for (const { from, to, totalCount, topSp } of edgeMap.values()) {
+    if (totalCount < minArrowCount) continue;
     const r1 = world.regions[from], r2 = world.regions[to];
     if (!r1 || !r2) continue;
 
@@ -254,21 +251,9 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
       x1: x1.toFixed(2), y1: y1.toFixed(2),
       x2: tx.toFixed(2), y2: ty.toFixed(2),
       stroke: color, 'stroke-width': strokeW.toFixed(1),
-      'stroke-opacity': '0.75',
+      'stroke-opacity': '0.8',
       'marker-end': 'url(#arrow)',
     }));
-
-    // Emoji label at arrow midpoint
-    if (spec) {
-      const midX = (x1 + tx) / 2, midY = (y1 + ty) / 2;
-      const lbl = el<SVGTextElement>('text', {
-        x: midX.toFixed(2), y: midY.toFixed(2),
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        'font-size': '7', 'pointer-events': 'none',
-      });
-      lbl.textContent = spec.emoji;
-      state.arrowLayer.appendChild(lbl);
-    }
   }
 }
 
