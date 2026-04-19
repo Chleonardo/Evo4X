@@ -4,9 +4,11 @@
 > виды, биомы, конфиг. Служит спецификацией для веб-порта (TypeScript + Vite + SVG).
 > Для пошаговой игры с игроком — см. [CONTEXT.md](CONTEXT.md).
 
-**Baseline (последнее обновление: 2026-04-19)**
-- Референсная реализация: `ue5-sandbox 5.6/Source/Evo4XSandbox/SimCore/`
+**Baseline (последнее обновление: 2026-04-20)**
 - Целевой стек: TypeScript + Vite + SVG (браузер)
+- Директория: `web-sandbox/`
+- Dev: `cd web-sandbox && npm run dev` → `localhost:5173`
+- Food lab: `localhost:5173/food-lab.html`
 
 ---
 
@@ -26,6 +28,8 @@
 - 8 видов с уникальными характеристиками, включая `Radiation` (склонность к миграции)
 - Автономная миграция, управляемая давлением голода
 - Биомы с ресурсными профилями и видовыми паками
+- Save/load (JSON: seed + tick + state)
+- Food lab — изолированный харнесс для тестирования food mechanics
 
 ---
 
@@ -34,12 +38,12 @@
 ### Гексагональная сетка
 - **~500 land-тайлов**, **flat-top** hex, axial координаты (Q, R)
 - World-координаты: `X = HexSize × 3/2 × Q`, `Y = HexSize × √3 × (R + Q/2)`
-- Тайлы делятся на `land` и `ocean` (ocean не участвует в симуляции, рендерится как border)
+- Тайлы делятся на `land` и `ocean` (ocean = синий фон `#1e6091`, не участвует в симуляции)
 
 ### Регионы
 - **~20 регионов**, `MinRegionSize = 7` гексов
-- Генерация: многоисточниковый BFS с приоритетом компактности (prefer tile adjacent to more same-region tiles)
-- После BFS: `MergeSmallRegions` (мелкие → в крупнейшего соседа) + `FixDisconnectedRegions` (анклавы → в соседний регион)
+- Генерация: **Voronoi-присвоение** (заменило BFS-рост) — каждый тайл назначается ближайшему seed-региону по hex-расстоянию. Даёт компактные, незакрученные регионы.
+- После Voronoi: мерж маленьких регионов в крупнейшего соседа
 - Регионы пронумерованы 0..N-1 после ремаппинга
 
 ### Ресурсы (3 типа)
@@ -60,17 +64,17 @@
 
 9 биомов, каждый задаёт ресурсный профиль (R1/R2/R3 в %) и список паков видов.
 
-| ID | Название | R1% | R2% | R3% | Цвет |
-|----|----------|-----|-----|-----|------|
-| `grassland` | Grassland | 100 | 0 | 0 | Vivid lime |
-| `open_savanna` | Open Savanna | 67 | 33 | 0 | Golden yellow |
-| `woodland` | Woodland | 33 | 67 | 0 | Deep forest green |
-| `dense_grove` | Dense Grove | 20 | 80 | 0 | Dark jungle green |
-| `root_patch` | Root Patch | 67 | 0 | 33 | Warm amber |
-| `rootland` | Rootland | 33 | 0 | 67 | Burnt orange-brown |
-| `diverse_savanna` | Diverse Savanna | 50 | 30 | 20 | Yellow-green |
-| `root_mosaic` | Root Mosaic | 40 | 20 | 40 | Deep ochre |
-| `leaf_mosaic` | Leaf Mosaic | 30 | 50 | 20 | Teal-green |
+| ID | Название | R1% | R2% | R3% |
+|----|----------|-----|-----|-----|
+| `grassland` | Grassland | 100 | 0 | 0 |
+| `open_savanna` | Open Savanna | 67 | 33 | 0 |
+| `woodland` | Woodland | 33 | 67 | 0 |
+| `dense_grove` | Dense Grove | 20 | 80 | 0 |
+| `root_patch` | Root Patch | 67 | 0 | 33 |
+| `rootland` | Rootland | 33 | 0 | 67 |
+| `diverse_savanna` | Diverse Savanna | 50 | 30 | 20 |
+| `root_mosaic` | Root Mosaic | 40 | 20 | 40 |
+| `leaf_mosaic` | Leaf Mosaic | 30 | 50 | 20 |
 
 ### Паки видов по биому
 При генерации для каждого региона случайно выбирается один пак (пустой пак = регион без видов).
@@ -84,36 +88,42 @@
 | `root_patch` | `[mole_rat]`, `[mole_rat, gazelle]`, `[mole_rat, zebra]`, `[mole_rat, buffalo]`, `[mole_rat, giraffe]`, `[warthog]`, `[warthog, gazelle]`, `[warthog, impala]`, `[warthog, buffalo]`, `[warthog, elephant]` |
 | `rootland` | `[mole_rat]`, `[mole_rat, gazelle]`, `[mole_rat, zebra]`, `[mole_rat, buffalo]`, `[mole_rat, giraffe]`, `[mole_rat, elephant]`, `[warthog]` |
 | `diverse_savanna` | `[giraffe, mole_rat, gazelle]`, `[giraffe, mole_rat, impala]`, `[giraffe, mole_rat, buffalo]`, `[giraffe, warthog, impala]`, `[giraffe, warthog, buffalo]`, `[giraffe, mole_rat, zebra]` |
-| `root_mosaic` | `[giraffe, mole_rat, gazelle]`, `[giraffe, mole_rat, impala]`, `[giraffe, mole_rat, buffalo]`, `[giraffe, warthog, impala]`, `[giraffe, warthog, buffalo]`, `[giraffe, mole_rat, zebra]` |
+| `root_mosaic` | (same as diverse_savanna) |
 | `leaf_mosaic` | `[giraffe, mole_rat, gazelle]`, `[giraffe, mole_rat, impala]`, `[giraffe, mole_rat, buffalo]`, `[giraffe, warthog, buffalo]` |
 
 ---
 
 ## 4. Виды
 
-8 видов. Статы фиксированы (нет трейтов, нет апгрейдов).
+8 видов. Статы в `web-sandbox/src/sim/species.ts`.
 
-| ID | Название | r | bR1 | bR2 | bR3 | Radiation% |
-|----|----------|---|-----|-----|-----|------------|
-| `gazelle` | Gazelle | 1.00 | 1.0 | 0.0 | 0.0 | 8 |
-| `impala` | Impala | 0.95 | 1.2 | 0.6 | 0.0 | 6 |
-| `zebra` | Zebra | 0.75 | 1.1 | 0.0 | 0.0 | 5 |
-| `buffalo` | Buffalo | 0.65 | 2.0 | 0.0 | 0.0 | 3 |
-| `giraffe` | Giraffe | 0.40 | 0.5 | 3.0 | 0.0 | 4 |
-| `elephant` | Elephant | 0.12 | 2.0 | 3.0 | 0.0 | 2 |
-| `warthog` | Warthog | 1.20 | 0.5 | 0.0 | 2.0 | 6 |
-| `mole_rat` | Mole Rat | 1.80 | 0.0 | 0.0 | 1.0 | 5 |
+### Основные статы (используются в main sandbox simulation)
+| ID | r | bR1 | bR2 | bR3 | Radiation% | size | consumption |
+|----|---|-----|-----|-----|------------|------|-------------|
+| `gazelle` | 1.00 | 1.0 | 0.0 | 0.0 | 8 | 1.0 | 1.0 |
+| `impala` | 0.95 | 1.2 | 0.6 | 0.0 | 6 | 2.0 | 2.0 |
+| `zebra` | 0.75 | 1.1 | 0.0 | 0.0 | 5 | 3.0 | 3.0 |
+| `buffalo` | 0.65 | 2.0 | 0.0 | 0.0 | 3 | 6.5 | 6.5 |
+| `giraffe` | 0.40 | 0.5 | 3.0 | 0.0 | 4 | 7.0 | 7.0 |
+| `elephant` | 0.12 | 2.0 | 3.0 | 0.0 | 2 | 10.0 | 10.0 |
+| `warthog` | 1.20 | 0.5 | 0.0 | 2.0 | 6 | 1.8 | 1.8 |
+| `mole_rat` | 1.80 | 0.0 | 0.0 | 1.0 | 5 | 0.2 | 0.2 |
+
+> **Важно:** поля `size` и `consumption` добавлены в схему, но **не применяются в основном
+> simulation loop** (main sandbox использует формулу без consumption). Они используются
+> только в food-lab харнессе (`web-sandbox/src/lab/labsim.ts`).
 
 - **r** — прирост за тик: `births = pop × r`
 - **bR1/bR2/bR3** — веса потребления ресурсов при allocation
 - **Radiation** — % шанс что одна голодающая пара мигрирует (Bernoulli per pair)
+- **size / consumption** — размер тела / прожорливость (= size, v1 правило)
 
 ### Стартовая популяция
 `StartPop = Region.HexCount × StartPopDensity` (дефолт `StartPopDensity = 2`)
 
 ---
 
-## 5. Логика тика (двухфазовая)
+## 5. Логика тика (двухфазовая, основной sandbox)
 
 ```
 SimulateTick(World):
@@ -130,227 +140,209 @@ SimulateTick(World):
   7. ExtinctionCleanup      → удаляет sp где pop <= ExtinctionEps
   8. TickDownEffects        → TTL-- для каждого ActiveEffect
   9. UpdateMetrics          → тренды, история, доминант по регионам
-  10. World.CurrentTick++
+  10. SmoothMigrationEdges  → exponential decay для стрелок
+  11. World.CurrentTick++
 ```
 
-### Шаг 1 — ApplyActiveEffects
-```
-Region.EffRi = Region.BaseRi
-for each Effect in Region.ActiveEffects:
-    EffRi *= Effect.MultRi
-```
-
-### Шаг 2 — ComputeBirths
-```
-PopPreBirth[sp] = Population[sp] × (1 + r[sp])
-```
-
-### Шаг 3 — AllocateResources
-Для каждого ресурса Ri:
+### Шаг 3 — AllocateResources (формула без consumption)
 ```
 w[sp] = PopPreBirth[sp] × b[sp][Ri]
 FoodAllocated[sp] += EffRi × w[sp] / Σw
 ```
-Пропорциональное деление по весу потребления.
 
-### Шаг 4 — ComputeMigration (ключевая механика)
+### Шаг 4 — ComputeMigration
 ```
 StarvingNewborns[sp] = min(births, max(0, PopPreBirth - FoodAllocated))
 StarvingPairs = floor(StarvingNewborns / 2)
 
-for each pair in 0..StarvingPairs-1:
-    roll = Rand01(seed, "migrate|tick|regionId|sp|pairIdx")
-    if roll < Radiation[sp] / 100:
-        NumExpeditions++
+for each pair → Bernoulli roll < Radiation[sp]/100 → NumExpeditions++
 
 OutgoingMigrants[sp] = NumExpeditions × 2
-
-# Распределение по соседям:
-Base = NumExpeditions / len(Neighbors)   # каждому соседу
-Rem  = NumExpeditions % len(Neighbors)   # остаток — детерминированно (shuffle)
-
-→ добавляет в World.PendingMigrants[neighbor][sp]
-→ добавляет в World.MigrationEdgesThisTick (для рендера стрелок)
+Base = NumExpeditions / len(Neighbors), Rem = NumExpeditions % len(Neighbors)
+→ PendingMigrants[neighbor][sp] += count
+→ MigrationEdgesThisTick append
 ```
 
 ### Шаг 5 — CommitStarvation
 ```
 EffectiveNPre[sp] = PopPreBirth[sp] - OutgoingMigrants[sp]
 Survivors[sp] = min(EffectiveNPre, FoodAllocated[sp])
-Region.Populations[sp] = max(0, Survivors)
-```
-**Важно:** мигранты вычитаются из n_pre ДО сравнения с едой.
-
-### Шаг 6 — ApplyIncomingMigrants
-Мигранты из PendingMigrants просто прибавляются к популяции региона-получателя.
-Они не голодают в тике прибытия — только со следующего тика.
-
-### Шаг 7 — ExtinctionCleanup
-```
-if Population[sp] <= ExtinctionEps (=1.0):
-    удалить sp из Populations и TickBreakdown
 ```
 
-### Шаг 8 — TickDownEffects
+### Шаг 10 — SmoothMigrationEdges
 ```
-for each Effect: TTL--
-удалить если TTL <= 0
+DECAY = 0.92, THRESHOLD = 0.1
+for each edge in migrationSmoothed: count *= DECAY; if count < 0.1 → delete
+for each edge in this tick: migrationSmoothed[key].count += edge.count
 ```
-
-### Шаг 9 — UpdateMetrics
-- `Region.TotalBiomass = Σ pop`
-- `Region.DominantSpecies` — вид с макс популяцией
-- `PopHistory[sp]` — ring buffer последних `TrendHistoryLen=50` тиков
-- Тренд: сравнение с `TrendWindowShort=3` тиков назад, порог `±5%` → Up/Down/Flat
-- Глобальные агрегаты: `TotalWorldBiomass`, `AliveSpeciesCount`, `FastestGrowing/Declining`
+Ключ: `"fromRegion->toRegion:speciesId"`. Используется только для рендера стрелок.
 
 ---
 
-## 6. Генерация мира (WorldGen pipeline)
+## 6. Food Lab (isolated harness)
 
+Отдельная страница `food-lab.html` для отладки food mechanics.
+Не трогает основной simulation loop.
+
+### Особенности
+- Нет миграции — изолированная 1-клетка
+- Тест-кейсы берутся из `biome.packs` выбранного биома
+- Начальная популяция: 50 особей каждого вида в паке
+- Ресурсный пул: 200 (= 20 гексов × richnessPerHex=10)
+
+### Новая формула (food lab v1)
+**Allocation:**
 ```
-Generate(Config, OutGrid, OutWorld):
-  1. GenerateContinent       → органический blob ~TotalHexes тайлов
-  2. GenerateRegions         → многоисточниковый BFS с компактностью
-  3. MergeSmallRegions       → мелкие регионы → в крупнейшего соседа
-  4. FixDisconnectedRegions  → анклавы → в соседний регион
-  5. Build Region structs + remap IDs → 0..N-1
-  6. BuildAdjacency          → Region.Neighbors[] через hex-соседство
-  7. AssignBiomes            → uniform random из 9 биомов per region
-  8. ComputeBaseResources    → BaseRi = Ratio × RichnessPerHex × HexCount
-  9. SeedSpecies             → random pack из биома, StartPop = HexCount × StartPopDensity
+w[sp] = PopPreBirth[sp] × LAB_CONSUMPTION[sp] × b[sp][Ri]
+FoodAllocated[sp] += EffRi × w[sp] / Σw
 ```
-
-### Шаг 1 — GenerateContinent (noise-based expansion)
-Не чистый BFS — вероятностное расширение с убыванием по расстоянию:
+**Survival:**
 ```
-MaxRadius = ceil(sqrt(TargetLandCount) × 1.2)
-Frontier = [center]
-
-while LandCount < TargetLandCount:
-    pick random tile from Frontier   (key: "continent|pick|{iter}")
-    pick random neighbor             (key: "continent|nb|{iter}")
-    dist = hex_distance(center, neighbor)
-
-    if dist > MaxRadius + 2: skip
-    AcceptChance = clamp(1 - dist / MaxRadius, 0.1, 1.0)
-    roll = Rand01(seed, "continent|accept|{iter}")
-    if roll > AcceptChance: skip     # отклонено — дальние клетки реже принимаются
-
-    mark neighbor as land, add to Frontier
-    if all neighbors of current tile are land: remove from Frontier
-```
-**Результат:** органический blob с плотным центром и изрезанными краями.
-Форма воспроизводима при том же `WorldSeed`.
-
-### Шаг 2 — GenerateRegions (compactness BFS)
-```
-# 1. Выбрать NumRegions seed-точек с минимальным расстоянием между ними
-MinSeedDist = max(2, floor(sqrt(LandCount / NumRegions) × 0.5))
-SeedPoints = spread_seeds(shuffled_land, NumRegions, MinSeedDist)
-
-# 2. Многоисточниковый BFS — каждый регион расширяется по очереди за раунд
-for each round:
-    for each region:
-        candidates = unassigned neighbors of current frontier
-        best_score = max tiles adjacent to same region   # компактность
-        claim tile with best_score (детерминированно)
-```
-Если seed-точек не хватает (слишком плотная карта) — добираем без ограничения дистанции.
-
-### Шаг 3 — MergeSmallRegions
-Итеративно: найти регион с `size < MinRegionSize` → слить в крупнейшего соседа → повторить до стабильности.
-
-### Шаг 4 — FixDisconnectedRegions
-BFS flood fill внутри каждого региона. Тайлы, не достижимые от главного компонента → передать ближайшему соседнему региону. Повторять до стабильности.
-
-### Шаг 6 — BuildAdjacency
-Для каждого land-тайла: если сосед принадлежит другому региону → добавить пару (RId, NbRegion) в `Neighbors[]` обоих регионов. Дупликаты исключаются через packed uint64 set.
-
-### Шаг 7 — AssignBiomes
-Каждому региону случайно назначается один из 9 биомов: `ChooseIndex(seed, "biome_assign|{regionId}", 9)`. Никаких ограничений на соседство.
-
-### Шаг 9 — SeedSpecies
-```
-for each region:
-    pack = random non-empty pack из биома (key: "species_pack|{regionId}")
-    for each species in pack:
-        Population[species] = HexCount × StartPopDensity
+Survivors[sp] = min(PopPreBirth[sp], FoodAllocated[sp] / LAB_CONSUMPTION[sp])
 ```
 
-### RNG
-Стейтлесс SHA256: `Rand01(seed, key) = sha256("{seed}|{key}")[:8] as uint32 / 2^32`
-Идентичный алгоритм с Python-движком. Все случайные выборы используют осмысленный строковый ключ.
+### LAB_CONSUMPTION (lab-only, сжатый диапазон)
+| Вид | Lab consumption | (spec value) |
+|-----|-----------------|--------------|
+| gazelle | 1.0 | 1.0 |
+| impala | 1.3 | 2.0 |
+| zebra | 1.6 | 3.0 |
+| buffalo | 2.2 | 6.5 |
+| giraffe | 2.5 | 7.0 |
+| elephant | 3.5 | 10.0 |
+| warthog | 1.2 | 1.8 |
+| mole_rat | 0.5 | 0.2 |
+
+Диапазон сжат 0.5–3.5 (вместо 0.2–10) чтобы нишевое разделение по bRi
+доминировало над raw-размером при межвидовой конкуренции.
+
+### Файлы
+- `web-sandbox/src/lab/labsim.ts` — логика тика с consumption
+- `web-sandbox/src/food-lab.ts` — UI, биом-селектор, рендер графиков
+- `web-sandbox/food-lab.html` — standalone Vite page
 
 ---
 
-## 7. Конфиг (SimConfig)
+## 7. Рендер
+
+### Слои SVG (порядок)
+1. `fillLayer` — hex-полигоны с цветом биома, клик → выбор региона
+2. `borderLayer` — чёрные границы между регионами
+3. `selectionLayer` — жёлтый `#fbbf24` контур выбранного региона (только внешние рёбра)
+4. `arrowLayer` — миграционные стрелки
+5. `labelLayer` — emoji-иконки видов поверх центроида региона
+
+### Стрелки (migrationSmoothed)
+- Одна стрелка на пару регионов (top species по суммарному потоку)
+- Направление: centroid → ближайший border hex, касающийся региона-получателя
+- Стрелка остаётся внутри source-региона, не пересекает границу
+- `strokeWidth = clamp(totalCount/100, 0.5, 3.5)`
+- `opacity = clamp(totalCount/5, 0, 0.9)`, fade < 0.02 → скрыта
+- Наконечник = SVG polygon (не marker, не context-stroke)
+- Emoji-лейбл на середине стрелки
+
+### Emoji-лейблы регионов
+- Все виды с ≥5% от total biomass региона
+- Горизонтальный ряд с spacing=10, центрирован по centroid
+- Font-size: 11
+
+### Выбор региона
+- Клик → желтый border highlight (только внешние рёбра через hex-соседство)
+- `setSelectedRegion` → `updateSelectionHighlight`
+- Повторный клик = сброс
+
+---
+
+## 8. Save / Load
+
+`web-sandbox/src/savegame.ts`
+
+**Формат (version 1):**
+```json
+{
+  "version": 1,
+  "config": { "worldSeed": "...", ... },
+  "tick": 42,
+  "regions": [
+    { "populations": {"gazelle": 120}, "activeEffects": [], "popHistory": {...} }
+  ],
+  "globalPopHistory": { "gazelle": [100, 110, ...] }
+}
+```
+
+**Load:** `generateWorld(config)` → override populations / popHistory / activeEffects per region.
+
+---
+
+## 9. Целевая архитектура (фактическое состояние)
+
+```
+web-sandbox/
+  src/
+    sim/
+      types.ts          — WorldState, Region, MigrationEdge, SimConfig
+      rng.ts            — rand01, shuffleIndices (SHA256)
+      biomes.ts         — 9 биомов
+      species.ts        — 8 видов + size/consumption
+      worldgen.ts       — Voronoi regions, biome assign, seed species
+      simulation.ts     — двухфазовый tick + smoothMigrationEdges
+    render/
+      hexmap.ts         — SVG hex grid, arrows, labels, selection
+      inspector.ts      — боковая панель региона
+      chart.ts          — global population chart
+      hud.ts            — tick counter, speed buttons, biomass/species HUD
+    lab/
+      labsim.ts         — изолированный tick с LAB_CONSUMPTION формулой
+    food-lab.ts         — food lab UI entry
+    main.ts             — основное приложение
+    savegame.ts         — save/load JSON
+    style.css
+  index.html
+  food-lab.html
+  vite.config.ts        — multi-page build (main + foodLab)
+```
+
+---
+
+## 10. Конфиг (SimConfig)
 
 | Параметр | Дефолт | Описание |
 |---|---|---|
-| `TotalHexes` | 500 | Примерное число land-тайлов |
-| `NumRegions` | 20 | Целевое число регионов |
-| `MinRegionSize` | 7 | Минимум гексов в регионе |
-| `RichnessPerHex` | 10 | Ресурсный бюджет на гекс |
-| `StartPopDensity` | 2 | Стартовая поп на гекс для каждого вида в паке |
-| `ExtinctionEps` | 1.0 | Порог вымирания |
-| `bEnableEvents` | false | Флуктуационные события (архитектура есть, пока выкл) |
-| `TrendHistoryLen` | 50 | Тиков истории на регион |
-| `TrendWindowShort` | 3 | Окно для тренд-стрелки |
-| `TrendThreshold` | 0.05 | ±5% = Flat |
-| `WorldSeed` | "42" | Сид для всего worldgen |
+| `totalHexes` | 500 | Примерное число land-тайлов |
+| `numRegions` | 20 | Целевое число регионов |
+| `minRegionSize` | 7 | Минимум гексов в регионе |
+| `richnessPerHex` | 10 | Ресурсный бюджет на гекс |
+| `startPopDensity` | 2 | Стартовая поп на гекс для каждого вида в паке |
+| `extinctionEps` | 1.0 | Порог вымирания |
+| `worldSeed` | "42" | Сид для всего worldgen |
 
 ---
 
-## 8. Целевая архитектура (TypeScript + Vite + SVG)
+## 11. Открытые вопросы / следующие шаги
 
-```
-src/
-  sim/
-    types.ts          — интерфейсы: Region, Species, WorldState, MigrationEdge
-    rng.ts            — Rand01, ChooseIndex (SHA256, совместим с UE5/Python)
-    biomes.ts         — 9 биомов с ратио и паками
-    species.ts        — 8 видов со всеми статами
-    worldgen.ts       — Generate pipeline
-    simulation.ts     — SimulateTick двухфазовый
-  render/
-    hexmap.ts         — SVG hex grid, клик → выбор региона
-    arrows.ts         — миграционные стрелки (SVG line + marker)
-    inspector.ts      — боковая панель региона
-    hud.ts            — глобальные метрики
-  main.ts
-index.html
-```
+1. **Food lab validation** — прогнать все biome packs через food lab с LAB_CONSUMPTION,
+   убедиться что все родные комбинации дают стабильное плато без доминирования.
+   Подкрутить LAB_CONSUMPTION если нужно.
 
-### Ключевые решения по рендеру
-- Регионы = SVG `<polygon>` (union гексов через path merge или просто отдельные hex с одинаковым fill)
-- Клик = `onclick` на SVG-элементе региона
-- Стрелки = `<line>` + `<marker defs>` для наконечника, толщина = f(кол-во мигрантов)
-- Хитмап популяции = `fill` цвет + opacity
-- Тренд = маленький `▲▼` текст или иконка поверх региона
+2. **Интеграция size/consumption в main sim** — когда food lab покажет стабильную формулу,
+   перенести в основной `simulation.ts`. До этого — только в lab.
 
----
+3. **Нормализация видимости стрелок по radiation** — сейчас слон (radiation=2%) редко
+   появляется на стрелках даже при доминировании. Возможное решение: нормировать
+   `count / radiation` для opacity.
 
-## 9. Отличия от Python-движка (Evo4X)
+4. **События** — архитектура `activeEffects` есть, `bEnableEvents=false`. Включать после
+   стабилизации food mechanics.
 
-| Аспект | Python (Evo4X) | Sandbox |
-|---|---|---|
-| Карта | 3×3 = 9 клеток | ~500 гексов, ~20 регионов |
-| Worldgen | Детерминированные слоты, жёсткие инварианты | Процедурный BFS, random биомы |
-| Богатство | Фиксировано: poor=30, normal=60, rich=90 | `RichnessPerHex × HexCount` |
-| Миграция | **Игрок**, явный action dict, до 50% популяции | **Автономная**, Bernoulli per starving pair × Radiation |
-| Radiation | Нет | Стат каждого вида (2–8%) |
-| Starvation | `survivors = min(n_pre, food)` | `survivors = min(n_pre - outgoing, food)` |
-| Порядок тика | effects → births → allocation → commit | births → allocation → migration → commit → apply (двухфазовый) |
-| Игрок | Есть: EVO, трейты, форк | Нет |
-| События | Включены (fluctuation, TTL 3–6) | Архитектура есть, `bEnableEvents=false` |
+5. **Баланс** — проверить что после интеграции consumption динамика выглядит правдоподобно
+   (крупные виды давят сильнее, но хуже масштабируются по численности).
 
----
-
-## 10. Открытые вопросы / следующие шаги
-
-1. **Веб-порт**: реализовать `sim/` модули на TypeScript, верифицировать детерминизм через тест с известным сидом
-2. **Совместимость RNG**: SHA256 в браузере — использовать `crypto.subtle.digest` или js-реализацию
-3. **Рендер регионов**: решить polygon-union vs hex-by-hex (влияет на читаемость границ)
-4. **События**: когда включать `bEnableEvents` — после того как базовая симуляция стабилизирована
-5. **Баланс**: после порта проверить что динамика аналогична UE5-версии (тот же сид → та же картина через 100 тиков)
+### Закрытые задачи (для контекста при регрессии)
+- Voronoi вместо BFS-рост: `worldgen.ts` — компактные регионы без "червеобразных" форм
+- Arrow flicker → exponential smoothing DECAY=0.92, THRESHOLD=0.1
+- Arrow arrowheads → SVG polygon (не marker; маркеры давали размер с strokeWidth)
+- Arrow overlap (mutual migration) → каждая стрелка внутри source-региона, не пересекает границу
+- Параллельные стрелки (per-species) — опробовано, откатили: слишком шумно
+- Save/load: JSON download + FileReader upload
+- Multi-species emoji labels ≥5% biomass
+- Selection highlight только внешние рёбра региона
