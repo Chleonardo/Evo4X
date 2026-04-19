@@ -28,7 +28,23 @@ export function simulateTick(world: WorldState): void {
   for (const region of world.regions) tickDownEffects(region);
 
   updateMetrics(world);
+  smoothMigrationEdges(world);
   world.currentTick++;
+}
+
+function smoothMigrationEdges(world: WorldState): void {
+  const DECAY = 0.65;
+  const THRESHOLD = 2.0;
+  for (const [k, entry] of world.migrationSmoothed) {
+    entry.count *= DECAY;
+    if (entry.count < THRESHOLD) world.migrationSmoothed.delete(k);
+  }
+  for (const edge of world.migrationEdgesThisTick) {
+    const k = `${edge.fromRegion}->${edge.toRegion}:${edge.speciesId}`;
+    const existing = world.migrationSmoothed.get(k);
+    if (existing) existing.count += edge.count;
+    else world.migrationSmoothed.set(k, { ...edge });
+  }
 }
 
 // ── Step 1 ───────────────────────────────────────────────────────────────────

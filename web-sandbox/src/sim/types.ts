@@ -109,6 +109,7 @@ export interface WorldState {
   regions: Region[];
   pendingMigrants: Map<number, Map<string, number>>;
   migrationEdgesThisTick: MigrationEdge[];
+  migrationSmoothed: Map<string, MigrationEdge>; // key: "fromRegion->toRegion:speciesId"
   metrics: GlobalMetrics;
   globalPopHistory: Map<string, number[]>;
 }

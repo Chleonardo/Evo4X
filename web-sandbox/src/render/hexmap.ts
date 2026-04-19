@@ -51,7 +51,7 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
     refX: '6', refY: '3', orient: 'auto',
   });
   const arrowPoly = el<SVGPolygonElement>('polygon', {
-    points: '0 0, 6 3, 0 6', fill: 'rgba(255,255,255,0.7)',
+    points: '0 0, 5 2.5, 0 5', fill: 'context-stroke',
   });
   marker.appendChild(arrowPoly);
   defs.appendChild(marker);
@@ -211,9 +211,9 @@ function nearestHex(hexIndices: number[], tiles: WorldState['grid']['tiles'], ta
 function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: number): void {
   state.arrowLayer.innerHTML = '';
 
-  // Aggregate edges by (from, to) pair — sum count across species
+  // Aggregate smoothed edges by (from, to) pair — sum count across species
   const edgeMap = new Map<string, { from: number; to: number; totalCount: number; topSp: string; topCount: number }>();
-  for (const edge of world.migrationEdgesThisTick) {
+  for (const edge of world.migrationSmoothed.values()) {
     const k = `${edge.fromRegion}->${edge.toRegion}`;
     const existing = edgeMap.get(k);
     if (existing) {

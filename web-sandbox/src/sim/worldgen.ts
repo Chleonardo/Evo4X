@@ -50,6 +50,7 @@ export function generateWorld(config: SimConfig): WorldState {
     regions,
     pendingMigrants: new Map(),
     migrationEdgesThisTick: [],
+    migrationSmoothed: new Map(),
     metrics: {
       totalWorldBiomass: 0, aliveSpeciesCount: 0,
       fastestGrowing: '', fastestDeclining: '',

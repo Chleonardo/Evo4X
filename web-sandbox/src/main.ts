@@ -5,6 +5,7 @@ import { initHexMap, updateHexMap, setSelectedRegion, HexMapState } from './rend
 import { renderInspector, clearInspector } from './render/inspector.js';
 import { renderChart } from './render/chart.js';
 import { updateHUD, initSpeedButtons, SpeedMode, SPEED_MS, setActiveSpeed } from './render/hud.js';
+import { saveWorld, loadWorldFromJSON } from './savegame.js';
 
 let world: WorldState;
 let mapState: HexMapState;
@@ -75,6 +76,39 @@ initSpeedButtons((mode) => setSpeed(mode));
 document.getElementById('btn-new-world')?.addEventListener('click', () => {
   const seed = String(Math.floor(Math.random() * 999999));
   buildWorld(seed);
+});
+
+document.getElementById('btn-save')?.addEventListener('click', () => {
+  if (world) saveWorld(world);
+});
+
+const loadInput = document.getElementById('load-input') as HTMLInputElement;
+loadInput?.addEventListener('change', () => {
+  const file = loadInput.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const json = e.target?.result as string;
+      if (tickInterval !== null) { clearInterval(tickInterval); tickInterval = null; }
+      showLoading(true);
+      setTimeout(() => {
+        world = loadWorldFromJSON(json);
+        mapState = initHexMap(mapSvg, world, onRegionClick);
+        updateHexMap(mapState, world);
+        updateHUD(world);
+        renderChart(chartSvg, world);
+        clearInspector(inspector);
+        selectedRegionId = -1;
+        setActiveSpeed('pause');
+        showLoading(false);
+      }, 20);
+    } catch (err) {
+      alert('Failed to load save file: ' + err);
+    }
+    loadInput.value = '';
+  };
+  reader.readAsText(file);
 });
 
 buildWorld(DEFAULT_CONFIG.worldSeed);
