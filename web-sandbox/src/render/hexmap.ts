@@ -57,8 +57,8 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
   defs.appendChild(marker);
   svg.appendChild(defs);
 
-  // Background
-  svg.appendChild(el('rect', { x: 0, y: 0, width: vw, height: vh, fill: '#0a1628' }));
+  // Background (water / lake color)
+  svg.appendChild(el('rect', { x: 0, y: 0, width: vw, height: vh, fill: '#1e6091' }));
 
   // Layer: hex fills (also serves as click targets)
   const fillLayer = el<SVGGElement>('g');
@@ -145,15 +145,25 @@ function updateSelectionHighlight(state: HexMapState, world: WorldState, ox: num
   if (!region) return;
   const { grid } = world;
   const size = grid.hexSize;
+  const rid = state.selectedRegionId;
+  // Draw only the outer border edges (not internal hex edges)
   for (const li of region.hexIndices) {
     const tile = grid.tiles[li];
     const cx = tile.wx + ox, cy = tile.wy + oy;
     const corners = hexCorners(cx, cy, size);
-    const pts = corners.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
-    state.selectionLayer.appendChild(el('polygon', {
-      points: pts, fill: 'none',
-      stroke: '#fbbf24', 'stroke-width': '2.5',
-    }));
+    for (let e = 0; e < 6; e++) {
+      const nbKey = coordKey(tile.q + NEIGHBOR_DQ[e], tile.r + NEIGHBOR_DR[e]);
+      const nbIdx = grid.coordMap.get(nbKey);
+      const sameRegion = nbIdx !== undefined && grid.tiles[nbIdx].isLand && grid.tiles[nbIdx].regionId === rid;
+      if (!sameRegion) {
+        const [c0, c1] = [corners[e], corners[(e + 1) % 6]];
+        state.selectionLayer.appendChild(el('line', {
+          x1: c0[0].toFixed(2), y1: c0[1].toFixed(2),
+          x2: c1[0].toFixed(2), y2: c1[1].toFixed(2),
+          stroke: '#fbbf24', 'stroke-width': '3', 'stroke-linecap': 'round',
+        }));
+      }
+    }
   }
 }
 
@@ -192,6 +202,17 @@ function renderLabels(state: HexMapState, world: WorldState, ox: number, oy: num
   }
 }
 
+function nearestHex(hexIndices: number[], tiles: WorldState['grid']['tiles'], targetX: number, targetY: number): [number, number] {
+  let nearX = 0, nearY = 0, nearDist2 = Infinity;
+  for (const hi of hexIndices) {
+    const t = tiles[hi];
+    const dx = t.wx - targetX, dy = t.wy - targetY;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < nearDist2) { nearDist2 = d2; nearX = t.wx; nearY = t.wy; }
+  }
+  return [nearX, nearY];
+}
+
 function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: number): void {
   state.arrowLayer.innerHTML = '';
 
@@ -208,18 +229,21 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     }
   }
 
+  const tiles = world.grid.tiles;
   for (const { from, to, totalCount, topSp } of edgeMap.values()) {
     const r1 = world.regions[from], r2 = world.regions[to];
     if (!r1 || !r2) continue;
 
-    const x1 = r1.centroidX + ox, y1 = r1.centroidY + oy;
-    const x2 = r2.centroidX + ox, y2 = r2.centroidY + oy;
+    // Arrow from nearest hex in r1 (toward r2) to nearest hex in r2 (toward r1)
+    const [sx, sy] = nearestHex(r1.hexIndices, tiles, r2.centroidX, r2.centroidY);
+    const [ex, ey] = nearestHex(r2.hexIndices, tiles, r1.centroidX, r1.centroidY);
+    const x1 = sx + ox, y1 = sy + oy;
+    const x2 = ex + ox, y2 = ey + oy;
 
-    // Offset arrow endpoint slightly inside target to clear the arrowhead
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const ux = dx / len, uy = dy / len;
-    const margin = world.grid.hexSize * 0.8;
+    const margin = world.grid.hexSize * 0.5;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
     const strokeW = Math.max(1, Math.min(4, totalCount / 6));
@@ -233,6 +257,18 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
       'stroke-opacity': '0.75',
       'marker-end': 'url(#arrow)',
     }));
+
+    // Emoji label at arrow midpoint
+    if (spec) {
+      const midX = (x1 + tx) / 2, midY = (y1 + ty) / 2;
+      const lbl = el<SVGTextElement>('text', {
+        x: midX.toFixed(2), y: midY.toFixed(2),
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        'font-size': '7', 'pointer-events': 'none',
+      });
+      lbl.textContent = spec.emoji;
+      state.arrowLayer.appendChild(lbl);
+    }
   }
 }
 

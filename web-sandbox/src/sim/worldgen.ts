@@ -108,55 +108,8 @@ function generateRegions(grid: HexGrid, numRegions: number, _minSize: number, se
   const actual = seedTileIndices.length;
   for (let i = 0; i < actual; i++) grid.tiles[seedTileIndices[i]].regionId = i;
 
-  const frontiers: number[][] = Array.from({ length: actual }, (_, i) => [seedTileIndices[i]]);
-
-  let changed = true, round = 0;
-  while (changed) {
-    changed = false;
-    for (let rId = 0; rId < actual; rId++) {
-      if (frontiers[rId].length === 0) continue;
-
-      const candidates = new Set<number>();
-      for (const ft of frontiers[rId]) {
-        const { q, r } = grid.tiles[ft];
-        for (let e = 0; e < 6; e++) {
-          const nk = coordKey(q + NEIGHBOR_DQ[e], r + NEIGHBOR_DR[e]);
-          const ni = grid.coordMap.get(nk);
-          if (ni !== undefined && grid.tiles[ni].isLand && grid.tiles[ni].regionId < 0) {
-            candidates.add(ni);
-          }
-        }
-      }
-      if (candidates.size === 0) { frontiers[rId] = []; continue; }
-
-      // Pick most compact candidate
-      let best = -1, bestScore = -1;
-      const bestGroup: number[] = [];
-      for (const ci of candidates) {
-        const { q, r } = grid.tiles[ci];
-        let score = 0;
-        for (let e = 0; e < 6; e++) {
-          const nk = coordKey(q + NEIGHBOR_DQ[e], r + NEIGHBOR_DR[e]);
-          const ni = grid.coordMap.get(nk);
-          if (ni !== undefined && grid.tiles[ni].regionId === rId) score++;
-        }
-        if (score > bestScore) { bestScore = score; bestGroup.length = 0; }
-        if (score === bestScore) bestGroup.push(ci);
-      }
-      const pick = chooseIndex(seed, `region_expand|${rId}|${round}`, bestGroup.length);
-      best = bestGroup[pick];
-
-      grid.tiles[best].regionId = rId;
-      frontiers[rId].push(best);
-      changed = true;
-    }
-    round++;
-    if (round > L * 2) break;
-  }
-
-  // Assign any remaining unassigned land tiles to nearest seed
+  // Voronoi: assign each land tile to the nearest seed (hex distance) — produces convex regions
   for (const li of grid.landIndices) {
-    if (grid.tiles[li].regionId >= 0) continue;
     const { q, r } = grid.tiles[li];
     let bestDist = Infinity, bestRegion = 0;
     for (let i = 0; i < actual; i++) {
