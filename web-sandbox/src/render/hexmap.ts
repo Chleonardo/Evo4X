@@ -230,7 +230,6 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const r1 = world.regions[from], r2 = world.regions[to];
     if (!r1 || !r2) continue;
 
-    // Arrow stays inside r1: centroid → border hex of r1 that touches r2
     const border = borderHexToward(r1, to, world.grid, r2.centroidX, r2.centroidY);
     if (!border) continue;
 
@@ -239,7 +238,6 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const ux = dx / len, uy = dy / len;
-    // Pull tip back slightly so arrowhead doesn't sit exactly on the border line
     const margin = world.grid.hexSize * 0.2;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
