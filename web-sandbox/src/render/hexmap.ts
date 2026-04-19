@@ -243,7 +243,7 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const margin = world.grid.hexSize * 0.5;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
-    const strokeW = Math.max(1, Math.min(4, totalCount / 6));
+    const strokeW = Math.max(2, Math.min(9, totalCount / 3));
     const spec = SPECIES.find(s => s.id === topSp);
     const color = spec ? spec.color : '#aaa';
 
@@ -251,9 +251,24 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
       x1: x1.toFixed(2), y1: y1.toFixed(2),
       x2: tx.toFixed(2), y2: ty.toFixed(2),
       stroke: color, 'stroke-width': strokeW.toFixed(1),
-      'stroke-opacity': '0.8',
+      'stroke-opacity': '0.85',
       'marker-end': 'url(#arrow)',
     }));
+
+    // Emoji near arrowhead (70% along arrow, offset perpendicular for readability)
+    if (spec) {
+      const lx = x1 + (tx - x1) * 0.72;
+      const ly = y1 + (ty - y1) * 0.72;
+      const perpX = -uy * 6, perpY = ux * 6;
+      const lbl = el<SVGTextElement>('text', {
+        x: (lx + perpX).toFixed(2), y: (ly + perpY).toFixed(2),
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        'font-size': '8', 'pointer-events': 'none',
+        stroke: '#000', 'stroke-width': '2', 'paint-order': 'stroke fill',
+      });
+      lbl.textContent = spec.emoji;
+      state.arrowLayer.appendChild(lbl);
+    }
   }
 }
 
