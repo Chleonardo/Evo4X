@@ -187,21 +187,33 @@ function renderLabels(state: HexMapState, world: WorldState, ox: number, oy: num
   }
 }
 
-function nearestHex(hexIndices: number[], tiles: WorldState['grid']['tiles'], targetX: number, targetY: number): [number, number] {
-  let nearX = 0, nearY = 0, nearDist2 = Infinity;
-  for (const hi of hexIndices) {
-    const t = tiles[hi];
-    const dx = t.wx - targetX, dy = t.wy - targetY;
+// Finds the hex in `region` that borders `targetRegionId`, closest to target centroid
+function borderHexToward(
+  region: { hexIndices: number[] },
+  targetRegionId: number,
+  grid: WorldState['grid'],
+  targetCX: number, targetCY: number,
+): [number, number] | null {
+  let bestX = 0, bestY = 0, bestDist2 = Infinity, found = false;
+  for (const hi of region.hexIndices) {
+    const tile = grid.tiles[hi];
+    let borders = false;
+    for (let e = 0; e < 6; e++) {
+      const ni = grid.coordMap.get(coordKey(tile.q + NEIGHBOR_DQ[e], tile.r + NEIGHBOR_DR[e]));
+      if (ni !== undefined && grid.tiles[ni].regionId === targetRegionId) { borders = true; break; }
+    }
+    if (!borders) continue;
+    const dx = tile.wx - targetCX, dy = tile.wy - targetCY;
     const d2 = dx * dx + dy * dy;
-    if (d2 < nearDist2) { nearDist2 = d2; nearX = t.wx; nearY = t.wy; }
+    if (d2 < bestDist2) { bestDist2 = d2; bestX = tile.wx; bestY = tile.wy; found = true; }
   }
-  return [nearX, nearY];
+  return found ? [bestX, bestY] : null;
 }
 
 function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: number): void {
   state.arrowLayer.innerHTML = '';
 
-  // Aggregate smoothed edges by (from, to) pair — sum count across species
+  // Aggregate smoothed edges by (from, to) pair
   const edgeMap = new Map<string, { from: number; to: number; totalCount: number; topSp: string; topCount: number }>();
   for (const edge of world.migrationSmoothed.values()) {
     const k = `${edge.fromRegion}->${edge.toRegion}`;
@@ -214,37 +226,35 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     }
   }
 
-  const tiles = world.grid.tiles;
-  const minArrowCount = 4; // hide trivial 1-2 migrant flows
   for (const { from, to, totalCount, topSp } of edgeMap.values()) {
-    if (totalCount < minArrowCount) continue;
     const r1 = world.regions[from], r2 = world.regions[to];
     if (!r1 || !r2) continue;
 
-    // Arrow from nearest hex in r1 (toward r2) to nearest hex in r2 (toward r1)
-    const [sx, sy] = nearestHex(r1.hexIndices, tiles, r2.centroidX, r2.centroidY);
-    const [ex, ey] = nearestHex(r2.hexIndices, tiles, r1.centroidX, r1.centroidY);
-    const x1 = sx + ox, y1 = sy + oy;
-    const x2 = ex + ox, y2 = ey + oy;
+    // Arrow stays inside r1: centroid → border hex of r1 that touches r2
+    const border = borderHexToward(r1, to, world.grid, r2.centroidX, r2.centroidY);
+    if (!border) continue;
 
+    const x1 = r1.centroidX + ox, y1 = r1.centroidY + oy;
+    const x2 = border[0] + ox,    y2 = border[1] + oy;
     const dx = x2 - x1, dy = y2 - y1;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const ux = dx / len, uy = dy / len;
-    const margin = world.grid.hexSize * 0.5;
+    // Pull tip back slightly so arrowhead doesn't sit exactly on the border line
+    const margin = world.grid.hexSize * 0.2;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
     const strokeW = Math.max(1, Math.min(4, totalCount / 5));
-    const opacity = Math.min(0.9, Math.max(0.25, totalCount / 25));
+    const opacity = Math.min(0.9, Math.max(0, totalCount / 22));
+    if (opacity < 0.05) continue;
+
     const spec = SPECIES.find(s => s.id === topSp);
     const color = spec ? spec.color : '#aaa';
 
-    // Arrowhead as polygon — tip at (tx,ty), base 5 units back
     const headLen = 5, headW = 2.5;
     const bx = tx - ux * headLen, by = ty - uy * headLen;
     const w1x = bx - uy * headW, w1y = by + ux * headW;
     const w2x = bx + uy * headW, w2y = by - ux * headW;
 
-    // Shaft stops at arrowhead base so they don't overlap
     state.arrowLayer.appendChild(el('line', {
       x1: x1.toFixed(2), y1: y1.toFixed(2),
       x2: bx.toFixed(2), y2: by.toFixed(2),
@@ -256,14 +266,13 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
       fill: color, 'fill-opacity': opacity.toFixed(2),
     }));
 
-    // Emoji label near arrowhead, offset perpendicular
     if (spec) {
-      const lx = x1 + (tx - x1) * 0.7 - uy * 6;
-      const ly = y1 + (ty - y1) * 0.7 + ux * 6;
+      const lx = (x1 + tx) * 0.5 - uy * 5;
+      const ly = (y1 + ty) * 0.5 + ux * 5;
       const lbl = el<SVGTextElement>('text', {
         x: lx.toFixed(2), y: ly.toFixed(2),
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        'font-size': '8', 'pointer-events': 'none',
+        'font-size': '7', 'pointer-events': 'none',
         stroke: '#000', 'stroke-width': '2', 'paint-order': 'stroke fill',
         opacity: opacity.toFixed(2),
       });
