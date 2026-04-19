@@ -44,17 +44,22 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-  // Arrowhead marker
+  // Per-species arrowhead markers (fixed size, color matches line)
   const defs = el<SVGDefsElement>('defs');
-  const marker = el<SVGMarkerElement>('marker', {
-    id: 'arrow', markerWidth: '8', markerHeight: '8',
-    refX: '6', refY: '3', orient: 'auto',
+  for (const spec of SPECIES) {
+    const m = el<SVGMarkerElement>('marker', {
+      id: `arrow-${spec.id}`, markerWidth: '7', markerHeight: '6',
+      refX: '6', refY: '3', orient: 'auto', markerUnits: 'userSpaceOnUse',
+    });
+    m.appendChild(el<SVGPolygonElement>('polygon', { points: '0 0.5, 6 3, 0 5.5', fill: spec.color }));
+    defs.appendChild(m);
+  }
+  const mDef = el<SVGMarkerElement>('marker', {
+    id: 'arrow-default', markerWidth: '7', markerHeight: '6',
+    refX: '6', refY: '3', orient: 'auto', markerUnits: 'userSpaceOnUse',
   });
-  const arrowPoly = el<SVGPolygonElement>('polygon', {
-    points: '0 0, 5 2.5, 0 5', fill: 'context-stroke',
-  });
-  marker.appendChild(arrowPoly);
-  defs.appendChild(marker);
+  mDef.appendChild(el<SVGPolygonElement>('polygon', { points: '0 0.5, 6 3, 0 5.5', fill: '#aaa' }));
+  defs.appendChild(mDef);
   svg.appendChild(defs);
 
   // Background (water / lake color)
@@ -243,16 +248,17 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const margin = world.grid.hexSize * 0.5;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
-    const strokeW = Math.max(2, Math.min(9, totalCount / 3));
+    const strokeW = Math.max(1, Math.min(4, totalCount / 5));
     const spec = SPECIES.find(s => s.id === topSp);
     const color = spec ? spec.color : '#aaa';
+    const markerId = spec ? `arrow-${spec.id}` : 'arrow-default';
 
     state.arrowLayer.appendChild(el('line', {
       x1: x1.toFixed(2), y1: y1.toFixed(2),
       x2: tx.toFixed(2), y2: ty.toFixed(2),
       stroke: color, 'stroke-width': strokeW.toFixed(1),
       'stroke-opacity': '0.85',
-      'marker-end': 'url(#arrow)',
+      'marker-end': `url(#${markerId})`,
     }));
 
     // Emoji near arrowhead (70% along arrow, offset perpendicular for readability)
