@@ -60,35 +60,35 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
   // Background
   svg.appendChild(el('rect', { x: 0, y: 0, width: vw, height: vh, fill: '#0a1628' }));
 
-  // Layer: hex fills
+  // Layer: hex fills (also serves as click targets)
   const fillLayer = el<SVGGElement>('g');
-  // Layer: region borders (static)
-  const borderLayer = el<SVGGElement>('g');
-  // Layer: selection highlight
-  const selectionLayer = el<SVGGElement>('g');
-  // Layer: migration arrows
-  const arrowLayer = el<SVGGElement>('g');
-  // Layer: labels
-  const labelLayer = el<SVGGElement>('g');
-  // Layer: click targets (invisible, on top)
-  const clickLayer = el<SVGGElement>('g');
+  // Layer: region borders (static, no pointer events)
+  const borderLayer = el<SVGGElement>('g', { 'pointer-events': 'none' });
+  // Layer: selection highlight (no pointer events)
+  const selectionLayer = el<SVGGElement>('g', { 'pointer-events': 'none' });
+  // Layer: migration arrows (no pointer events)
+  const arrowLayer = el<SVGGElement>('g', { 'pointer-events': 'none' });
+  // Layer: labels (no pointer events)
+  const labelLayer = el<SVGGElement>('g', { 'pointer-events': 'none' });
 
-  svg.append(fillLayer, borderLayer, selectionLayer, arrowLayer, labelLayer, clickLayer);
+  svg.append(fillLayer, borderLayer, selectionLayer, arrowLayer, labelLayer);
 
-  // Build hex fill polygons
+  // Build hex fill polygons — onclick directly on each tile poly (pixel-perfect)
   for (const li of grid.landIndices) {
     const tile = grid.tiles[li];
     const cx = tile.wx + ox, cy = tile.wy + oy;
     const corners = hexCorners(cx, cy, size);
     const pts = corners.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
-    const biome = getBiome(regions[tile.regionId]?.biomeId ?? 'grassland');
+    const regionId = tile.regionId;
+    const biome = getBiome(regions[regionId]?.biomeId ?? 'grassland');
     const poly = el<SVGPolygonElement>('polygon', {
       points: pts,
       fill: biome.color,
       stroke: biome.color,
       'stroke-width': '0.4',
-      'data-tile': li,
     });
+    poly.style.cursor = 'pointer';
+    poly.addEventListener('click', () => onRegionClick(regionId));
     fillLayer.appendChild(poly);
   }
 
@@ -110,23 +110,6 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
         }));
       }
     }
-  }
-
-  // Click targets: one per region (convex polygon over all hexes, approximated as invisible rect over centroid)
-  // Actually: per region, one large transparent polygon of all hex points
-  for (const region of regions) {
-    // Use a circle at centroid for click target — quick and reliable
-    const cx = region.centroidX + ox, cy = region.centroidY + oy;
-    const approxRadius = Math.sqrt(region.hexCount) * size * 0.8;
-    const circle = el<SVGCircleElement>('circle', {
-      cx: cx.toFixed(2), cy: cy.toFixed(2),
-      r: approxRadius.toFixed(2),
-      fill: 'transparent',
-      'data-region': region.id,
-    });
-    circle.addEventListener('click', () => onRegionClick(region.id));
-    circle.style.cursor = 'pointer';
-    clickLayer.appendChild(circle);
   }
 
   const state: HexMapState = {
