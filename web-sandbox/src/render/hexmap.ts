@@ -243,9 +243,9 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const margin = world.grid.hexSize * 0.2;
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
-    const strokeW = Math.max(1, Math.min(4, totalCount / 5));
-    const opacity = Math.min(0.9, Math.max(0, totalCount / 22));
-    if (opacity < 0.05) continue;
+    const strokeW = Math.max(0.5, Math.min(3.5, totalCount / 100));
+    const opacity = Math.min(0.9, Math.max(0, totalCount / 5));
+    if (opacity < 0.02) continue;
 
     const spec = SPECIES.find(s => s.id === topSp);
     const color = spec ? spec.color : '#aaa';
