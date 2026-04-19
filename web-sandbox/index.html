@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evo4X Sandbox</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="hud">
+    <span id="hud-title">Evo4X Sandbox</span>
+    <span id="hud-tick">Tick: 0</span>
+    <div id="speed-controls">
+      <button id="btn-pause" class="speed-btn active">⏸ Pause</button>
+      <button id="btn-slow" class="speed-btn">▶ Slow</button>
+      <button id="btn-fast" class="speed-btn">▶▶ Fast</button>
+      <button id="btn-turbo" class="speed-btn">▶▶▶ Turbo</button>
+    </div>
+    <span id="hud-sep">|</span>
+    <span id="hud-biomass">Biomass: —</span>
+    <span id="hud-species">Species: —</span>
+    <button id="btn-new-world" class="new-world-btn">New World</button>
+  </div>
+  <div id="main">
+    <div id="map-container">
+      <svg id="map-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div id="side-panel">
+      <div id="inspector">
+        <div class="inspector-empty">Click a region to inspect</div>
+      </div>
+      <div id="chart-container">
+        <div id="chart-title">Global Population</div>
+        <svg id="chart-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
