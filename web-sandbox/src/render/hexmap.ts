@@ -44,22 +44,7 @@ export function initHexMap(svg: SVGSVGElement, world: WorldState, onRegionClick:
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-  // Per-species arrowhead markers (fixed size, color matches line)
   const defs = el<SVGDefsElement>('defs');
-  for (const spec of SPECIES) {
-    const m = el<SVGMarkerElement>('marker', {
-      id: `arrow-${spec.id}`, markerWidth: '7', markerHeight: '6',
-      refX: '6', refY: '3', orient: 'auto', markerUnits: 'userSpaceOnUse',
-    });
-    m.appendChild(el<SVGPolygonElement>('polygon', { points: '0 0.5, 6 3, 0 5.5', fill: spec.color }));
-    defs.appendChild(m);
-  }
-  const mDef = el<SVGMarkerElement>('marker', {
-    id: 'arrow-default', markerWidth: '7', markerHeight: '6',
-    refX: '6', refY: '3', orient: 'auto', markerUnits: 'userSpaceOnUse',
-  });
-  mDef.appendChild(el<SVGPolygonElement>('polygon', { points: '0 0.5, 6 3, 0 5.5', fill: '#aaa' }));
-  defs.appendChild(mDef);
   svg.appendChild(defs);
 
   // Background (water / lake color)
@@ -249,28 +234,38 @@ function renderArrows(state: HexMapState, world: WorldState, ox: number, oy: num
     const tx = x2 - ux * margin, ty = y2 - uy * margin;
 
     const strokeW = Math.max(1, Math.min(4, totalCount / 5));
+    const opacity = Math.min(0.9, Math.max(0.25, totalCount / 25));
     const spec = SPECIES.find(s => s.id === topSp);
     const color = spec ? spec.color : '#aaa';
-    const markerId = spec ? `arrow-${spec.id}` : 'arrow-default';
 
+    // Arrowhead as polygon — tip at (tx,ty), base 5 units back
+    const headLen = 5, headW = 2.5;
+    const bx = tx - ux * headLen, by = ty - uy * headLen;
+    const w1x = bx - uy * headW, w1y = by + ux * headW;
+    const w2x = bx + uy * headW, w2y = by - ux * headW;
+
+    // Shaft stops at arrowhead base so they don't overlap
     state.arrowLayer.appendChild(el('line', {
       x1: x1.toFixed(2), y1: y1.toFixed(2),
-      x2: tx.toFixed(2), y2: ty.toFixed(2),
+      x2: bx.toFixed(2), y2: by.toFixed(2),
       stroke: color, 'stroke-width': strokeW.toFixed(1),
-      'stroke-opacity': '0.85',
-      'marker-end': `url(#${markerId})`,
+      'stroke-opacity': opacity.toFixed(2),
+    }));
+    state.arrowLayer.appendChild(el('polygon', {
+      points: `${tx.toFixed(2)},${ty.toFixed(2)} ${w1x.toFixed(2)},${w1y.toFixed(2)} ${w2x.toFixed(2)},${w2y.toFixed(2)}`,
+      fill: color, 'fill-opacity': opacity.toFixed(2),
     }));
 
-    // Emoji near arrowhead (70% along arrow, offset perpendicular for readability)
+    // Emoji label near arrowhead, offset perpendicular
     if (spec) {
-      const lx = x1 + (tx - x1) * 0.72;
-      const ly = y1 + (ty - y1) * 0.72;
-      const perpX = -uy * 6, perpY = ux * 6;
+      const lx = x1 + (tx - x1) * 0.7 - uy * 6;
+      const ly = y1 + (ty - y1) * 0.7 + ux * 6;
       const lbl = el<SVGTextElement>('text', {
-        x: (lx + perpX).toFixed(2), y: (ly + perpY).toFixed(2),
+        x: lx.toFixed(2), y: ly.toFixed(2),
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
         'font-size': '8', 'pointer-events': 'none',
         stroke: '#000', 'stroke-width': '2', 'paint-order': 'stroke fill',
+        opacity: opacity.toFixed(2),
       });
       lbl.textContent = spec.emoji;
       state.arrowLayer.appendChild(lbl);

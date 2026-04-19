@@ -33,8 +33,8 @@ export function simulateTick(world: WorldState): void {
 }
 
 function smoothMigrationEdges(world: WorldState): void {
-  const DECAY = 0.65;
-  const THRESHOLD = 2.0;
+  const DECAY = 0.82;
+  const THRESHOLD = 1.0;
   for (const [k, entry] of world.migrationSmoothed) {
     entry.count *= DECAY;
     if (entry.count < THRESHOLD) world.migrationSmoothed.delete(k);
